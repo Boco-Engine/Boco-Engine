@@ -9,11 +9,11 @@ Window :: struct {
 }
 
 init_window :: proc() -> (ok: bool = true) {
-    log.info("Initialising Window.")
+    log.info("Initialising Window")
 
     return
 }
 
 cleanup_window :: proc() {
-    log.info("Cleaning window resources.")
+    log.info("Cleaning window resources")
 }

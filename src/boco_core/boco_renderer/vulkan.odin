@@ -9,7 +9,7 @@ import sdl "vendor:sdl2"
 
 foreign import vulkan "vulkan-1.lib"
 
-@(default_calling_convention="c")
+// @(default_calling_convention="c")
 foreign vulkan {
     vkGetInstanceProcAddr :: proc(vk.Instance, cstring) -> rawptr ---
 }
@@ -54,16 +54,18 @@ create_instance :: proc(using renderer: ^Renderer) -> (ok: bool = true) {
 
     res := vk.CreateInstance(&instance_info, nil, &instance)
     if res != .SUCCESS {
-        log.error("Failed initialising Vulkan Instance.")
+        log.error("Failed initialising Vulkan Instance")
         log.error(res)
         return false
     }
+
+    log.info("Created Instance")
 
     return
 }
 
 init_vulkan :: proc(using renderer: ^Renderer) -> (ok: bool = true) {
-    log.info("Creating Vulkan resources.")
+    log.info("Creating Vulkan resources")
 	vk.load_proc_addresses(cast(rawptr)vkGetInstanceProcAddr)
 
     create_instance(renderer)
@@ -72,6 +74,6 @@ init_vulkan :: proc(using renderer: ^Renderer) -> (ok: bool = true) {
 }
 
 cleanup_vulkan :: proc(using renderer: ^Renderer) {
-    log.info("Cleaning Vulkan resources.")
+    log.info("Cleaning Vulkan resources")
     vk.DestroyInstance(instance, nil)
 }

@@ -14,17 +14,17 @@ Engine :: struct {
 }
 
 init_engine :: proc(using engine: ^Engine) -> (ok: bool = true) {
-    log.info("Started Boco Engine.")
+    log.info("Started Boco Engine")
 
     ok = boco_renderer.init_renderer(&renderer)
     if !ok {
-        log.error("Failed initialising renderer.")
+        log.error("Failed initialising renderer")
         return
     }
 
     ok = boco_window.init_window()
     if !ok {
-        log.error("Failed to initialise Window.")
+        log.error("Failed to initialise Window")
         return
     }
 
@@ -33,7 +33,7 @@ init_engine :: proc(using engine: ^Engine) -> (ok: bool = true) {
 }
 
 run_engine :: proc(using engine: ^Engine) {
-    log.info("Running Engine main loop.")
+    log.info("Running Engine main loop")
     for running {
         running = false
     }

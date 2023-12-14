@@ -13,12 +13,12 @@ init_renderer :: proc(using renderer: ^Renderer) -> (ok: bool = true) {
     when GRAPHICS_API == "Vulkan" {
         ok = init_vulkan(renderer)
     } else {
-        log.error("Unsupported Graphics API.")
+        log.error("Unsupported Graphics API")
         return false
     }
 
     if !ok {
-        log.error("Failed to initialise Vulkan.")
+        log.error("Failed to initialise Vulkan")
         return
     }
 

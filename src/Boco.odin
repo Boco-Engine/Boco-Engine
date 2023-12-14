@@ -26,7 +26,7 @@ main :: proc() {
 
     ok := init_engine(&engine)
     if !ok {
-        log.error("Failed initialising engine.")
+        log.error("Failed initialising engine")
         return 
     }
 
