@@ -16,15 +16,20 @@ Engine :: struct {
 init_engine :: proc(using engine: ^Engine) -> (ok: bool = true) {
     log.info("Started Boco Engine")
 
+    engine.renderer.features = {
+        .geometryShader, 
+        .tessellationShader
+    }
+
+    boco_window.init_window() or_return
+    // if !ok {
+    //     log.error("Failed to initialise Window")
+    //     return
+    // }
+
     ok = boco_renderer.init_renderer(&renderer)
     if !ok {
         log.error("Failed initialising renderer")
-        return
-    }
-
-    ok = boco_window.init_window()
-    if !ok {
-        log.error("Failed to initialise Window")
         return
     }
 

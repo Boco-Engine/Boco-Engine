@@ -4,8 +4,16 @@ GRAPHICS_API :: "Vulkan"
 
 import "core:log"
 
+SupportedRendererFeatures :: enum {
+    tessellationShader,
+    geometryShader,
+}
+
+RendererFeatures :: bit_set[SupportedRendererFeatures]
+
 Renderer :: struct {
     using _renderer_internals : RendererInternals,
+    features : RendererFeatures,
     needs_recreation : bool
 }
 
