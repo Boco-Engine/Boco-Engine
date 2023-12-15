@@ -1,4 +1,3 @@
-//+private
 package boco_renderer
 
 import "core:c"
@@ -13,35 +12,64 @@ foreign vulkan {
     vkGetInstanceProcAddr :: proc(vk.Instance, cstring) -> rawptr ---
 }
 
+DEBUG_MESSENGER_CALLBACK :: proc(
+    messageSeverity: vk.DebugUtilsMessageSeverityFlagsEXT, 
+    messageTypes: vk.DebugUtilsMessageTypeFlagsEXT, 
+    pCallbackData: ^vk.DebugUtilsMessengerCallbackDataEXT, 
+    pUserData: rawptr
+) -> bool {
+    fmt.println("[VULKN] --- [", messageTypes, "] [", messageSeverity, "]", pCallbackData.pMessage)
+    return false
+}
+
+fill_debug_messenger_info :: proc(debug_messenger_info: ^vk.DebugUtilsMessengerCreateInfoEXT) {
+    debug_messenger_info^ = {}
+    debug_messenger_info.sType = .DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT
+    debug_messenger_info.messageSeverity = {.ERROR, .WARNING}
+    debug_messenger_info.messageType = {.PERFORMANCE, .VALIDATION, .DEVICE_ADDRESS_BINDING, .GENERAL}
+    debug_messenger_info.pfnUserCallback = cast(vk.ProcDebugUtilsMessengerCallbackEXT)DEBUG_MESSENGER_CALLBACK
+    debug_messenger_info.pUserData = nil
+}
+
 RendererInternals :: struct {
     instance: vk.Instance,
-    available_physical_devices: []vk.PhysicalDevice,
     physical_device: vk.PhysicalDevice,
     logical_device: vk.Device,
 
+    debug_messenger: vk.DebugUtilsMessengerEXT,
+    enabled_features: RendererFeatures
 }
 
-init_vulkan :: proc(using renderer: ^Renderer) -> (ok: bool = true) {
+// TODO: Add Vulkan debug callback for more detailed messages.
+// TODO: Allow changing GPU in use.
+init_vulkan :: proc(using renderer: ^Renderer) -> (ok: bool = false) {
     log.info("Creating Vulkan resources")
-	vk.load_proc_addresses(cast(rawptr)vkGetInstanceProcAddr)
+    vk.load_proc_addresses(cast(rawptr)vkGetInstanceProcAddr)
 
     init_instance(renderer)
-    physical_device_count : u32
-    vk.EnumeratePhysicalDevices(instance, &physical_device_count, nil)
-    available_physical_devices = make([]vk.PhysicalDevice, physical_device_count)
-    vk.EnumeratePhysicalDevices(instance, &physical_device_count, &available_physical_devices[0])
+
+    when ODIN_DEBUG {
+        init_debug_messenger(renderer)
+    }
 
     query_best_device(renderer)
 
-    return
+    init_device(renderer)
+
+    return true
 }
 
 cleanup_vulkan :: proc(using renderer: ^Renderer) {
     log.info("Cleaning Vulkan resources")
+
+    // when ODIN_DEBUG {
+    //     vk.DestroyDebugUtilsMessengerEXT(instance, debug_messenger, nil)
+    // }
+
     vk.DestroyInstance(instance, nil)
 }
 
-init_instance :: proc(using renderer: ^Renderer) -> (ok: bool = true) {
+init_instance :: proc(using renderer: ^Renderer) -> (ok: bool = false) {
     application_info : vk.ApplicationInfo
     application_info.sType = .APPLICATION_INFO
     // NOTE: Guess for this might be user application stuff we want to place.
@@ -49,31 +77,39 @@ init_instance :: proc(using renderer: ^Renderer) -> (ok: bool = true) {
     application_info.applicationVersion = vk.MAKE_VERSION(0, 1, 0)
     application_info.pEngineName = "Boco Engine"
     application_info.engineVersion = vk.MAKE_VERSION(0, 1, 0)
-    application_info.apiVersion = vk.API_VERSION_1_0
+    application_info.apiVersion = vk.API_VERSION_1_3
 
     instance_info : vk.InstanceCreateInfo
     instance_info.sType = .INSTANCE_CREATE_INFO
+    instance_info.pNext = nil
     instance_info.pApplicationInfo = &application_info
     // TODO: Need to query window/os for what extensions we need.
 
-    extensions := [?]cstring {vk.KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME}
+    layers := [dynamic]cstring{}
+    extensions := [dynamic]cstring {vk.KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME}
+
     
+    debug_messenger_info : vk.DebugUtilsMessengerCreateInfoEXT
     when ODIN_DEBUG {
-        layers := [?]cstring{"VK_LAYER_KHRONOS_validation"}
-    } else {
-        layers := [?]cstring{}
+        log.info("Validaion layers set")
+        append(&layers, "VK_LAYER_KHRONOS_validation")
+        append(&extensions, vk.EXT_DEBUG_UTILS_EXTENSION_NAME)
+
+        fill_debug_messenger_info(&debug_messenger_info)
+        instance_info.pNext = cast(^vk.DebugUtilsMessengerCreateInfoEXT)&debug_messenger_info
     }
 
-    instance_info.enabledExtensionCount = len(extensions)
+    verify_layer_support(layers[:]) or_return
+    verify_extension_support(layers[:], extensions[:])
+
+    instance_info.enabledExtensionCount = auto_cast len(extensions)
     instance_info.ppEnabledExtensionNames = &extensions[0]
 
-    instance_info.enabledLayerCount = 0
-    instance_info.ppEnabledLayerNames = nil
+    instance_info.enabledLayerCount = auto_cast len(extensions)
+    instance_info.ppEnabledLayerNames = &extensions[0] if len(extensions) > 0 else nil
 
-    when ODIN_DEBUG {
-        instance_info.enabledLayerCount = len(layers)
-        instance_info.ppEnabledLayerNames = &layers[0]
-    }
+    instance_info.enabledLayerCount = auto_cast len(layers)
+    instance_info.ppEnabledLayerNames = &layers[0] if len(layers) > 0 else nil
 
     res := vk.CreateInstance(&instance_info, nil, &instance)
     if res != .SUCCESS {
@@ -86,44 +122,20 @@ init_instance :: proc(using renderer: ^Renderer) -> (ok: bool = true) {
 
     log.info("Created Instance")
 
-    return
+    return true
 }
 
-device_supports_required_features :: proc(physical_device: vk.PhysicalDevice, enabled_features: RendererFeatures) -> (bool) {
-    device_features : vk.PhysicalDeviceFeatures
-    vk.GetPhysicalDeviceFeatures(physical_device, &device_features)
-    for feature in SupportedRendererFeatures {
-        if feature not_in enabled_features do continue
-        switch feature {
-            case .geometryShader:
-                if !device_features.geometryShader do return false
-            case .tessellationShader:
-                if !device_features.tessellationShader do return false
-        }
-    }
+init_debug_messenger :: proc(using renderer: ^Renderer) -> (ok: bool = false) {
+    debug_messenger_info : vk.DebugUtilsMessengerCreateInfoEXT
+    fill_debug_messenger_info(&debug_messenger_info)
+    ret := vk.CreateDebugUtilsMessengerEXT(instance, &debug_messenger_info, nil, &debug_messenger)
+    log.info(ret)
 
     return true
 }
 
-PHYSICAL_DEVICE_TYPE_SCORE :: [vk.PhysicalDeviceType]u32{
-    .OTHER          = 100,
-	.INTEGRATED_GPU = 0,
-	.DISCRETE_GPU   = 1000,
-	.VIRTUAL_GPU    = 0,
-	.CPU            = 100,
-}
+init_device :: proc(using renderer: ^Renderer) -> (ok: bool = false) {
 
-query_best_device :: proc(using renderer: ^Renderer) {
-    best_device : vk.PhysicalDevice = nil
-    best_score : u32
-    for device in available_physical_devices {
-        if !device_supports_required_features(physical_device, renderer.features) do continue
-        device_score : u32 = 0
 
-        properties : vk.PhysicalDeviceProperties
-        vk.GetPhysicalDeviceProperties(device, &properties)
-
-        device_type_score := PHYSICAL_DEVICE_TYPE_SCORE
-        device_score += device_type_score[properties.deviceType]
-    }
+    return true
 }

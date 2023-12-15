@@ -4,6 +4,13 @@ GRAPHICS_API :: "Vulkan"
 
 import "core:log"
 
+// Not sure I like this, but makes swapping out Graphics APIs pretty easy if we decide to add XBOX/PS Support
+// Would be better to just import the file and have these already defined, but cant put import in a when.
+when GRAPHICS_API == "Vulkan" {
+    init_graphics_api :: init_vulkan
+    cleanup_graphics_api :: cleanup_vulkan
+}
+
 SupportedRendererFeatures :: enum {
     tessellationShader,
     geometryShader,
@@ -13,17 +20,12 @@ RendererFeatures :: bit_set[SupportedRendererFeatures]
 
 Renderer :: struct {
     using _renderer_internals : RendererInternals,
-    features : RendererFeatures,
+
     needs_recreation : bool
 }
 
 init_renderer :: proc(using renderer: ^Renderer) -> (ok: bool = true) {
-    when GRAPHICS_API == "Vulkan" {
-        ok = init_vulkan(renderer)
-    } else {
-        log.error("Unsupported Graphics API")
-        return false
-    }
+    ok = init_graphics_api(renderer)
 
     if !ok {
         log.error("Failed to initialise Vulkan")
@@ -38,5 +40,5 @@ version :: proc() -> string {
 }
 
 cleanup_renderer :: proc(using renderer: ^Renderer) {
-    cleanup_vulkan(renderer)
+    cleanup_graphics_api(renderer)
 }

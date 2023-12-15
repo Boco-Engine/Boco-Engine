@@ -14,6 +14,6 @@ init_window :: proc() -> (ok: bool = true) {
     return
 }
 
-cleanup_window :: proc() {
+cleanup_window :: proc(using window: ^Window) {
     log.info("Cleaning window resources")
 }
