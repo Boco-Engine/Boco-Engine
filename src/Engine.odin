@@ -13,23 +13,19 @@ Engine :: struct {
     renderer : boco_renderer.Renderer,
 }
 
-init_engine :: proc(using engine: ^Engine) -> (ok: bool = true) {
+init_engine :: proc(using engine: ^Engine) -> (ok: bool = false) {
     log.info("Started Boco Engine")
 
-    ok = boco_renderer.init_renderer(&renderer)
-    if !ok {
-        log.error("Failed initialising renderer")
-        return
+    engine.renderer.enabled_features = {
+        .geometryShader, 
+        .tessellationShader,
     }
 
-    ok = boco_window.init_window()
-    if !ok {
-        log.error("Failed to initialise Window")
-        return
-    }
+    boco_window.init_window() or_return
+    boco_renderer.init_renderer(&renderer) or_return
 
     running = true
-    return
+    return true
 }
 
 run_engine :: proc(using engine: ^Engine) {
@@ -41,4 +37,6 @@ run_engine :: proc(using engine: ^Engine) {
 
 cleanup_engine :: proc(using engine: ^Engine) {
     log.info("Exiting Boco Engine")
+    boco_window.cleanup_window(&window)
+    boco_renderer.cleanup_renderer(&renderer)
 }

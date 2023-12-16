@@ -1,4 +1,3 @@
-//+private
 package boco_renderer
 
 import "core:c"
@@ -9,16 +8,68 @@ import sdl "vendor:sdl2"
 
 foreign import vulkan "vulkan-1.lib"
 
-// @(default_calling_convention="c")
 foreign vulkan {
     vkGetInstanceProcAddr :: proc(vk.Instance, cstring) -> rawptr ---
 }
 
-RendererInternals :: struct {
-    instance: vk.Instance
+DEBUG_MESSENGER_CALLBACK :: proc(
+    messageSeverity: vk.DebugUtilsMessageSeverityFlagsEXT, 
+    messageTypes: vk.DebugUtilsMessageTypeFlagsEXT, 
+    pCallbackData: ^vk.DebugUtilsMessengerCallbackDataEXT, 
+    pUserData: rawptr
+) -> bool {
+    fmt.println("[VULKN] --- [", messageTypes, "] [", messageSeverity, "]", pCallbackData.pMessage)
+    return false
 }
 
-create_instance :: proc(using renderer: ^Renderer) -> (ok: bool = true) {
+fill_debug_messenger_info :: proc(debug_messenger_info: ^vk.DebugUtilsMessengerCreateInfoEXT) {
+    debug_messenger_info^ = {}
+    debug_messenger_info.sType = .DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT
+    debug_messenger_info.messageSeverity = {.ERROR, .WARNING}
+    debug_messenger_info.messageType = {.PERFORMANCE, .VALIDATION, .DEVICE_ADDRESS_BINDING, .GENERAL}
+    debug_messenger_info.pfnUserCallback = cast(vk.ProcDebugUtilsMessengerCallbackEXT)DEBUG_MESSENGER_CALLBACK
+    debug_messenger_info.pUserData = nil
+}
+
+RendererInternals :: struct {
+    instance: vk.Instance,
+    physical_device: vk.PhysicalDevice,
+    logical_device: vk.Device,
+
+    debug_messenger: vk.DebugUtilsMessengerEXT,
+    enabled_features: RendererFeatures
+}
+
+// TODO: Add Vulkan debug callback for more detailed messages.
+// TODO: Allow changing GPU in use.
+init_vulkan :: proc(using renderer: ^Renderer) -> (ok: bool = false) {
+    log.info("Creating Vulkan resources")
+    vk.load_proc_addresses(cast(rawptr)vkGetInstanceProcAddr)
+
+    init_instance(renderer)
+
+    when ODIN_DEBUG {
+        init_debug_messenger(renderer)
+    }
+
+    query_best_device(renderer)
+
+    init_device(renderer)
+
+    return true
+}
+
+cleanup_vulkan :: proc(using renderer: ^Renderer) {
+    log.info("Cleaning Vulkan resources")
+
+    when ODIN_DEBUG {
+        vk.DestroyDebugUtilsMessengerEXT(instance, debug_messenger, nil)
+    }
+
+    vk.DestroyInstance(instance, nil)
+}
+
+init_instance :: proc(using renderer: ^Renderer) -> (ok: bool = false) {
     application_info : vk.ApplicationInfo
     application_info.sType = .APPLICATION_INFO
     // NOTE: Guess for this might be user application stuff we want to place.
@@ -26,31 +77,39 @@ create_instance :: proc(using renderer: ^Renderer) -> (ok: bool = true) {
     application_info.applicationVersion = vk.MAKE_VERSION(0, 1, 0)
     application_info.pEngineName = "Boco Engine"
     application_info.engineVersion = vk.MAKE_VERSION(0, 1, 0)
-    application_info.apiVersion = vk.API_VERSION_1_0
+    application_info.apiVersion = vk.API_VERSION_1_3
 
     instance_info : vk.InstanceCreateInfo
     instance_info.sType = .INSTANCE_CREATE_INFO
+    instance_info.pNext = nil
     instance_info.pApplicationInfo = &application_info
     // TODO: Need to query window/os for what extensions we need.
 
-    extensions := [?]cstring {vk.KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME}
+    layers := [dynamic]cstring{}
+    extensions := [dynamic]cstring {vk.KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME}
+
     
+    debug_messenger_info : vk.DebugUtilsMessengerCreateInfoEXT
     when ODIN_DEBUG {
-        layers := [?]cstring{"VK_LAYER_KHRONOS_validation"}
-    } else {
-        layers := [?]cstring{}
+        log.info("Validaion layers set")
+        append(&layers, "VK_LAYER_KHRONOS_validation")
+        append(&extensions, vk.EXT_DEBUG_UTILS_EXTENSION_NAME)
+
+        fill_debug_messenger_info(&debug_messenger_info)
+        instance_info.pNext = cast(^vk.DebugUtilsMessengerCreateInfoEXT)&debug_messenger_info
     }
 
-    instance_info.enabledExtensionCount = len(extensions)
+    verify_layer_support(layers[:]) or_return
+    verify_extension_support(layers[:], extensions[:])
+
+    instance_info.enabledExtensionCount = auto_cast len(extensions)
     instance_info.ppEnabledExtensionNames = &extensions[0]
 
-    instance_info.enabledLayerCount = 0
-    instance_info.ppEnabledLayerNames = nil
+    instance_info.enabledLayerCount = auto_cast len(extensions)
+    instance_info.ppEnabledLayerNames = &extensions[0] if len(extensions) > 0 else nil
 
-    when ODIN_DEBUG {
-        instance_info.enabledLayerCount = len(layers)
-        instance_info.ppEnabledLayerNames = &layers[0]
-    }
+    instance_info.enabledLayerCount = auto_cast len(layers)
+    instance_info.ppEnabledLayerNames = &layers[0] if len(layers) > 0 else nil
 
     res := vk.CreateInstance(&instance_info, nil, &instance)
     if res != .SUCCESS {
@@ -59,21 +118,27 @@ create_instance :: proc(using renderer: ^Renderer) -> (ok: bool = true) {
         return false
     }
 
+    vk.load_proc_addresses(instance);
+
     log.info("Created Instance")
 
-    return
+    return true
 }
 
-init_vulkan :: proc(using renderer: ^Renderer) -> (ok: bool = true) {
-    log.info("Creating Vulkan resources")
-	vk.load_proc_addresses(cast(rawptr)vkGetInstanceProcAddr)
+init_debug_messenger :: proc(using renderer: ^Renderer) -> (ok: bool = false) {
+    debug_messenger_info : vk.DebugUtilsMessengerCreateInfoEXT
+    fill_debug_messenger_info(&debug_messenger_info)
+    ret := vk.CreateDebugUtilsMessengerEXT(instance, &debug_messenger_info, nil, &debug_messenger)
+    log.info(ret)
 
-    create_instance(renderer)
-
-    return
+    return true
 }
 
-cleanup_vulkan :: proc(using renderer: ^Renderer) {
-    log.info("Cleaning Vulkan resources")
-    vk.DestroyInstance(instance, nil)
+init_device :: proc(using renderer: ^Renderer) -> (ok: bool = false) {
+    query_family_queues(renderer, {.GRAPHICS, .COMPUTE})
+
+    device_info : vk.DeviceCreateInfo
+    device_info.sType = .DEVICE_CREATE_INFO
+
+    return true
 }
