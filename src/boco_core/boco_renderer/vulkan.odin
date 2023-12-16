@@ -62,9 +62,9 @@ init_vulkan :: proc(using renderer: ^Renderer) -> (ok: bool = false) {
 cleanup_vulkan :: proc(using renderer: ^Renderer) {
     log.info("Cleaning Vulkan resources")
 
-    // when ODIN_DEBUG {
-    //     vk.DestroyDebugUtilsMessengerEXT(instance, debug_messenger, nil)
-    // }
+    when ODIN_DEBUG {
+        vk.DestroyDebugUtilsMessengerEXT(instance, debug_messenger, nil)
+    }
 
     vk.DestroyInstance(instance, nil)
 }
@@ -135,7 +135,10 @@ init_debug_messenger :: proc(using renderer: ^Renderer) -> (ok: bool = false) {
 }
 
 init_device :: proc(using renderer: ^Renderer) -> (ok: bool = false) {
+    query_family_queues(renderer, {.GRAPHICS, .COMPUTE})
 
+    device_info : vk.DeviceCreateInfo
+    device_info.sType = .DEVICE_CREATE_INFO
 
     return true
 }

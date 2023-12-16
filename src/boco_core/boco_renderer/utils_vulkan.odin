@@ -122,3 +122,17 @@ verify_extension_support :: proc(layers, extensions: []cstring) -> (supported: b
 
     return
 }
+
+query_family_queues :: proc(using renderer: ^Renderer, queue_flags_wanted :bit_set[vk.QueueFlag]) {
+    queue_family_property_count : u32
+    vk.GetPhysicalDeviceQueueFamilyProperties(physical_device, &queue_family_property_count, nil)
+
+    queue_family_properties := make([]vk.QueueFamilyProperties, queue_family_property_count)
+    defer delete(queue_family_properties)
+
+    vk.GetPhysicalDeviceQueueFamilyProperties(physical_device, &queue_family_property_count, &queue_family_properties[0])
+    
+    for family_property in queue_family_properties {
+        log.debug(family_property)
+    }
+}

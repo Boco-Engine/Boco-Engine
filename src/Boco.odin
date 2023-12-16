@@ -5,7 +5,6 @@ import "core:fmt"
 import "core:os"
 
 create_logger :: proc() -> (log.Logger) {
-    
     DEBUG_LOGGER_OPTIONS :: log.Options{
         .Level,
         .Terminal_Color,
@@ -28,6 +27,7 @@ create_logger :: proc() -> (log.Logger) {
     when ODIN_DEBUG {
         return log.create_console_logger(lowest = .Debug, opt = DEBUG_LOGGER_OPTIONS)
     }
+
     os.make_directory("temp")
     os.make_directory("temp/logs")
     handle, ok := os.open("temp/logs/temp_log.txt", (os.O_CREATE|os.O_TRUNC))
