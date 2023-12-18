@@ -13,7 +13,7 @@ Engine :: struct {
     renderer : boco_renderer.Renderer,
 }
 
-init_engine :: proc(using engine: ^Engine) -> (ok: bool = false) {
+init :: proc(using engine: ^Engine) -> (ok: bool = false) {
     log.info("Started Boco Engine")
 
     engine.renderer.enabled_features = {
@@ -21,22 +21,22 @@ init_engine :: proc(using engine: ^Engine) -> (ok: bool = false) {
         .tessellationShader,
     }
 
-    boco_window.init_window() or_return
+    boco_window.init(&window) or_return
     boco_renderer.init_renderer(&renderer) or_return
 
     running = true
     return true
 }
 
-run_engine :: proc(using engine: ^Engine) {
+run :: proc(using engine: ^Engine) {
     log.info("Running Engine main loop")
     for running {
-        running = false
+        running &= boco_window.update(&window)
     }
 }
 
-cleanup_engine :: proc(using engine: ^Engine) {
+cleanup :: proc(using engine: ^Engine) {
     log.info("Exiting Boco Engine")
-    boco_window.cleanup_window(&window)
+    boco_window.cleanup(&window)
     boco_renderer.cleanup_renderer(&renderer)
 }
