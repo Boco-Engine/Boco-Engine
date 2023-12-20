@@ -8,6 +8,8 @@ import sdl "vendor:sdl2"
 
 foreign import vulkan "vulkan-1.lib"
 
+QUEUE_FLAGS_MAX_INDEX :: 10
+
 foreign vulkan {
     vkGetInstanceProcAddr :: proc(vk.Instance, cstring) -> rawptr ---
 }
@@ -31,22 +33,51 @@ fill_debug_messenger_info :: proc(debug_messenger_info: ^vk.DebugUtilsMessengerC
     debug_messenger_info.pUserData = nil
 }
 
+QueueFamilyType :: enum {
+	GRAPHICS,
+	COMPUTE 
+}
+
 RendererInternals :: struct {
     instance: vk.Instance,
     physical_device: vk.PhysicalDevice,
     logical_device: vk.Device,
 
     debug_messenger: vk.DebugUtilsMessengerEXT,
-    enabled_features: RendererFeatures
+    enabled_features: RendererFeatures,
+
+    // NOTE: Only 1 queue of each type, might want to expand this later.
+    queues: [QueueFamilyType]vk.Queue,
+
+    queue_family_indices: [QueueFamilyType]u32
 }
 
 // TODO: Add Vulkan debug callback for more detailed messages.
 // TODO: Allow changing GPU in use.
-init_vulkan :: proc(using renderer: ^Renderer) -> (ok: bool = false) {
+init_vulkan :: proc(using renderer: ^Renderer) -> (ok: bool = false) 
+{
     log.info("Creating Vulkan resources")
     vk.load_proc_addresses(cast(rawptr)vkGetInstanceProcAddr)
 
-    init_instance(renderer)
+    layers := [dynamic]cstring{}
+    instance_extensions := [dynamic]cstring {vk.KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME}
+    device_extensions := [dynamic]cstring {vk.KHR_SWAPCHAIN_EXTENSION_NAME}
+    defer {
+        delete(layers)
+        delete(instance_extensions)
+        delete(device_extensions)
+    }
+
+    
+    when ODIN_DEBUG {
+        log.info("Validaion layers set")
+        append(&layers, "VK_LAYER_KHRONOS_validation")
+        append(&layers, "VK_LAYER_LUNARG_monitor")
+
+        append(&instance_extensions, vk.EXT_DEBUG_UTILS_EXTENSION_NAME)
+    }
+
+    init_instance(renderer, layers[:], instance_extensions[:]) or_return
 
     when ODIN_DEBUG {
         init_debug_messenger(renderer)
@@ -54,7 +85,7 @@ init_vulkan :: proc(using renderer: ^Renderer) -> (ok: bool = false) {
 
     query_best_device(renderer)
 
-    init_device(renderer)
+    init_device(renderer, layers[:], device_extensions[:]) or_return
 
     return true
 }
@@ -66,10 +97,11 @@ cleanup_vulkan :: proc(using renderer: ^Renderer) {
         vk.DestroyDebugUtilsMessengerEXT(instance, debug_messenger, nil)
     }
 
+    vk.DestroyDevice(logical_device, nil)
     vk.DestroyInstance(instance, nil)
 }
 
-init_instance :: proc(using renderer: ^Renderer) -> (ok: bool = false) {
+init_instance :: proc(using renderer: ^Renderer, layers, extensions: []cstring) -> (ok: bool = false) {
     application_info : vk.ApplicationInfo
     application_info.sType = .APPLICATION_INFO
     // NOTE: Guess for this might be user application stuff we want to place.
@@ -85,31 +117,23 @@ init_instance :: proc(using renderer: ^Renderer) -> (ok: bool = false) {
     instance_info.pApplicationInfo = &application_info
     // TODO: Need to query window/os for what extensions we need.
 
-    layers := [dynamic]cstring{}
-    extensions := [dynamic]cstring {vk.KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME}
-
-    
-    debug_messenger_info : vk.DebugUtilsMessengerCreateInfoEXT
-    when ODIN_DEBUG {
-        log.info("Validaion layers set")
-        append(&layers, "VK_LAYER_KHRONOS_validation")
-        append(&extensions, vk.EXT_DEBUG_UTILS_EXTENSION_NAME)
-
-        fill_debug_messenger_info(&debug_messenger_info)
-        instance_info.pNext = cast(^vk.DebugUtilsMessengerCreateInfoEXT)&debug_messenger_info
-    }
-
     verify_layer_support(layers[:]) or_return
-    verify_extension_support(layers[:], extensions[:])
+    verify_extension_support(layers[:], extensions[:]) or_return
 
     instance_info.enabledExtensionCount = auto_cast len(extensions)
     instance_info.ppEnabledExtensionNames = &extensions[0]
 
-    instance_info.enabledLayerCount = auto_cast len(extensions)
-    instance_info.ppEnabledLayerNames = &extensions[0] if len(extensions) > 0 else nil
-
     instance_info.enabledLayerCount = auto_cast len(layers)
     instance_info.ppEnabledLayerNames = &layers[0] if len(layers) > 0 else nil
+
+    instance_info.enabledExtensionCount = auto_cast len(extensions)
+    instance_info.ppEnabledExtensionNames = &extensions[0] if len(extensions) > 0 else nil
+
+    debug_messenger_info : vk.DebugUtilsMessengerCreateInfoEXT
+    when ODIN_DEBUG {
+        fill_debug_messenger_info(&debug_messenger_info)
+        instance_info.pNext = cast(^vk.DebugUtilsMessengerCreateInfoEXT)&debug_messenger_info
+    }
 
     res := vk.CreateInstance(&instance_info, nil, &instance)
     if res != .SUCCESS {
@@ -134,11 +158,46 @@ init_debug_messenger :: proc(using renderer: ^Renderer) -> (ok: bool = false) {
     return true
 }
 
-init_device :: proc(using renderer: ^Renderer) -> (ok: bool = false) {
-    query_family_queues(renderer, {.GRAPHICS, .COMPUTE})
+init_device :: proc(using renderer: ^Renderer, layers, extensions: []cstring) -> (ok: bool = false) {
+    query_family_queues(renderer)
+    
+    priorities: [1]f32 = {1.0}
 
-    device_info : vk.DeviceCreateInfo
+    queue_create_infos: [QueueFamilyType]vk.DeviceQueueCreateInfo
+    queue_create_infos[.GRAPHICS].sType = .DEVICE_QUEUE_CREATE_INFO
+    queue_create_infos[.GRAPHICS].queueFamilyIndex = u32(queue_family_indices[.GRAPHICS])
+    queue_create_infos[.GRAPHICS].queueCount = 1
+    queue_create_infos[.GRAPHICS].pQueuePriorities = &priorities[0]
+
+    queue_create_infos[.COMPUTE].sType = .DEVICE_QUEUE_CREATE_INFO
+    queue_create_infos[.COMPUTE].queueFamilyIndex = u32(queue_family_indices[.COMPUTE])
+    queue_create_infos[.COMPUTE].queueCount = 1
+    queue_create_infos[.COMPUTE].pQueuePriorities = &priorities[0]
+
+    features: vk.PhysicalDeviceFeatures
+    features.geometryShader = true
+    features.tessellationShader = true
+
+    device_info: vk.DeviceCreateInfo
     device_info.sType = .DEVICE_CREATE_INFO
+    device_info.queueCreateInfoCount = len(queue_create_infos)
+    device_info.pQueueCreateInfos = &(queue_create_infos[QueueFamilyType(0)])
+    device_info.enabledLayerCount = auto_cast len(layers)
+    device_info.ppEnabledLayerNames = &layers[0]
+    device_info.enabledExtensionCount = auto_cast len(extensions)
+    device_info.ppEnabledExtensionNames = &extensions[0]
+    device_info.pEnabledFeatures = &features
 
-    return true
+    verify_extension_support(layers[:], extensions[:]) or_return
+
+    vk.CreateDevice(physical_device, &device_info, nil, &logical_device)
+    
+	vk.load_proc_addresses(logical_device)
+
+    for queue_type in QueueFamilyType {
+        vk.GetDeviceQueue(logical_device, cast(u32)queue_family_indices[queue_type], 0, &queues[queue_type])
+    }
+
+    fmt.println("Created Device")
+    return
 }
