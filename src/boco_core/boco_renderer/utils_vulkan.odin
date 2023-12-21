@@ -94,7 +94,7 @@ verify_layer_support :: proc(layers: []cstring) -> (supported: bool = true) {
     return 
 }
 
-verify_extension_support :: proc(layers, extensions: []cstring) -> (supported: bool = true) {
+verify_instance_extension_support :: proc(layers, extensions: []cstring) -> (supported: bool = true) {
     available_extension_count : u32
     vk.EnumerateInstanceExtensionProperties(nil, &available_extension_count, nil)
 
@@ -117,9 +117,46 @@ verify_extension_support :: proc(layers, extensions: []cstring) -> (supported: b
 
         available_extension_count += layer_extension_count
     }
-
     
+    check_extension: for extension in extensions {
+        for &available_extension in available_extensions {
+            if extension == cstring(&available_extension.extensionName[0]) do continue check_extension
+        }
+        log.error("Unsupported layer found:", extension)
+        return false
+    }
 
+    return
+}
+
+verify_device_extension_support :: proc(physical_device: vk.PhysicalDevice, layers, extensions: []cstring) -> (supported: bool = true) {
+    available_extension_count : u32
+    vk.EnumerateDeviceExtensionProperties(physical_device, nil, &available_extension_count, nil)
+
+    available_extensions : [dynamic]vk.ExtensionProperties
+    defer delete(available_extensions)
+
+    resize(&available_extensions, auto_cast available_extension_count)
+
+    vk.EnumerateDeviceExtensionProperties(physical_device, nil, &available_extension_count, &available_extensions[0])
+
+    for layer in layers {
+        layer_extension_count : u32
+        vk.EnumerateDeviceExtensionProperties(physical_device, layer, &layer_extension_count, nil)
+
+        if layer_extension_count == 0 do continue
+
+        resize(&available_extensions, int(available_extension_count + layer_extension_count))
+        
+        vk.EnumerateDeviceExtensionProperties(physical_device, layer, &layer_extension_count, &available_extensions[available_extension_count])
+
+        available_extension_count += layer_extension_count
+    }
+
+    for &extension in available_extensions {
+        log.debug(cstring(&extension.extensionName[0]))
+    }
+    
     check_extension: for extension in extensions {
         for &available_extension in available_extensions {
             if extension == cstring(&available_extension.extensionName[0]) do continue check_extension

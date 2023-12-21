@@ -19,9 +19,7 @@ else when GRAPHICS_API == "DirectX 12"
 SupportedRendererFeatures :: enum 
 {
     tessellationShader, 
-    geometryShader,
-
-    SupportedRendererFeaturesCount
+    geometryShader
 }
 
 RendererFeatures :: bit_set[SupportedRendererFeatures]

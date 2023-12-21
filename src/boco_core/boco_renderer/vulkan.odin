@@ -59,18 +59,27 @@ init_vulkan :: proc(using renderer: ^Renderer) -> (ok: bool = false)
     log.info("Creating Vulkan resources")
     vk.load_proc_addresses(cast(rawptr)vkGetInstanceProcAddr)
 
+    // TODO: Should query window for needed layers!
     layers := [dynamic]cstring{}
-    instance_extensions := [dynamic]cstring {vk.KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME}
-    device_extensions := [dynamic]cstring {vk.KHR_SWAPCHAIN_EXTENSION_NAME}
+
+    instance_extensions := [dynamic]cstring{
+        vk.KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME,
+        "VK_KHR_win32_surface",
+        vk.KHR_SURFACE_EXTENSION_NAME,
+    }
+
+    device_extensions := [dynamic]cstring{
+        vk.KHR_SWAPCHAIN_EXTENSION_NAME,
+    }
+
     defer {
         delete(layers)
         delete(instance_extensions)
         delete(device_extensions)
     }
-
     
     when ODIN_DEBUG {
-        log.info("Validaion layers set")
+        log.info("Validaion layers added")
         append(&layers, "VK_LAYER_KHRONOS_validation")
         append(&layers, "VK_LAYER_LUNARG_monitor")
 
@@ -115,10 +124,9 @@ init_instance :: proc(using renderer: ^Renderer, layers, extensions: []cstring) 
     instance_info.sType = .INSTANCE_CREATE_INFO
     instance_info.pNext = nil
     instance_info.pApplicationInfo = &application_info
-    // TODO: Need to query window/os for what extensions we need.
 
     verify_layer_support(layers[:]) or_return
-    verify_extension_support(layers[:], extensions[:]) or_return
+    verify_instance_extension_support(layers[:], extensions[:]) or_return
 
     instance_info.enabledExtensionCount = auto_cast len(extensions)
     instance_info.ppEnabledExtensionNames = &extensions[0]
@@ -175,8 +183,18 @@ init_device :: proc(using renderer: ^Renderer, layers, extensions: []cstring) ->
     queue_create_infos[.COMPUTE].pQueuePriorities = &priorities[0]
 
     features: vk.PhysicalDeviceFeatures
-    features.geometryShader = true
-    features.tessellationShader = true
+    
+    for feature in SupportedRendererFeatures {
+        if feature not_in enabled_features do continue
+        switch feature {
+            case .geometryShader:
+                features.geometryShader = true
+            case .tessellationShader:
+                features.tessellationShader = true
+            case:
+                log.error("Feature added without support being added.")
+        }
+    }
 
     device_info: vk.DeviceCreateInfo
     device_info.sType = .DEVICE_CREATE_INFO
@@ -188,9 +206,9 @@ init_device :: proc(using renderer: ^Renderer, layers, extensions: []cstring) ->
     device_info.ppEnabledExtensionNames = &extensions[0]
     device_info.pEnabledFeatures = &features
 
-    verify_extension_support(layers[:], extensions[:]) or_return
+    verify_device_extension_support(physical_device, layers[:], extensions[:]) or_return
 
-    vk.CreateDevice(physical_device, &device_info, nil, &logical_device)
+    (vk.CreateDevice(physical_device, &device_info, nil, &logical_device) == .SUCCESS) or_return
     
 	vk.load_proc_addresses(logical_device)
 
@@ -198,6 +216,6 @@ init_device :: proc(using renderer: ^Renderer, layers, extensions: []cstring) ->
         vk.GetDeviceQueue(logical_device, cast(u32)queue_family_indices[queue_type], 0, &queues[queue_type])
     }
 
-    fmt.println("Created Device")
-    return
+    log.info("Created Device")
+    return true
 }
