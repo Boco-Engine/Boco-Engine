@@ -2,3 +2,4 @@ build/
 *.exe
 ols.json
 temp/
+*.pdb

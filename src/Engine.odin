@@ -21,7 +21,7 @@ init_engine :: proc(using engine: ^Engine) -> (ok: bool = false) {
         .tessellationShader,
     }
 
-    boco_window.init_window() or_return
+    boco_window.init_window(&window) or_return
     boco_renderer.init_renderer(&renderer) or_return
 
     running = true
