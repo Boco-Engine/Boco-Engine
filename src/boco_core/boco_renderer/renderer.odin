@@ -4,6 +4,7 @@ GRAPHICS_API :: #config(GRAPHICS_API, "vulkan")
 
 import "core:log"
 import "core:time"
+import "../boco_window"
 
 // Not sure I like this, but makes swapping out Graphics APIs pretty easy if we decide to add XBOX/PS Support
 // Would be better to just import the file and have these already defined, but cant put import in a when.
@@ -26,6 +27,7 @@ RendererFeatures :: bit_set[SupportedRendererFeatures]
 
 Renderer :: struct {
     using _renderer_internals : RendererInternals,
+    main_window : ^boco_window.Window,
 
     needs_recreation : bool
 }

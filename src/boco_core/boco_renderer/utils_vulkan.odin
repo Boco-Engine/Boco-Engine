@@ -40,7 +40,7 @@ verify_required_feature_support :: proc(physical_device: vk.PhysicalDevice, enab
 // Currently highly prioritises discrete gpus and just sorts by how many GBs available to the device
 // Devices must support all the features specified in the renderer, otherwise will not be used
 // Can consider adding required features and optional ones.
-query_best_device :: proc(using renderer: ^Renderer) {
+query_best_device :: proc(using renderer: ^Renderer) -> bool {
     available_physical_devices : [dynamic]vk.PhysicalDevice
     get_all_available_devices(renderer, &available_physical_devices)
     defer delete(available_physical_devices)
@@ -70,8 +70,15 @@ query_best_device :: proc(using renderer: ^Renderer) {
             best_score = device_score
         }
     }
+
     physical_device = best_device
-    assert(physical_device != nil, "Failed to find supported device.")
+
+    if physical_device == nil {
+        log.error("Failed to find compatible physical device on the system")
+        return false
+    }
+    
+    return true
 }
 
 verify_layer_support :: proc(layers: []cstring) -> (supported: bool = true) {
@@ -153,9 +160,10 @@ verify_device_extension_support :: proc(physical_device: vk.PhysicalDevice, laye
         available_extension_count += layer_extension_count
     }
 
-    for &extension in available_extensions {
-        log.debug(cstring(&extension.extensionName[0]))
-    }
+    // Prints Extensions
+    // for &extension in available_extensions {
+    //     log.debug(cstring(&extension.extensionName[0]))
+    // }
     
     check_extension: for extension in extensions {
         for &available_extension in available_extensions {
@@ -185,7 +193,10 @@ query_family_queues :: proc(using renderer: ^Renderer) -> bool {
     }
 
     for property, index in queue_family_properties {
-        if .GRAPHICS in property.queueFlags {
+        supports_present: b32
+        vk.GetPhysicalDeviceSurfaceSupportKHR(physical_device, cast(u32)index, surface, &supports_present)
+
+        if .GRAPHICS in property.queueFlags && supports_present {
             append(&available_graphics_queues, cast(u32)index)
         }
         if .COMPUTE in property.queueFlags {
@@ -198,7 +209,6 @@ query_family_queues :: proc(using renderer: ^Renderer) -> bool {
     if len(available_compute_queues) == 0 do return false
 
     // WEAK_TODO Can be improved, but not too impactful
-
     contains_int :: proc(arr: [dynamic]u32, val: u32) -> (contains: bool = false) {
         for num in arr do if num == val do return true
         return
@@ -220,4 +230,54 @@ query_family_queues :: proc(using renderer: ^Renderer) -> bool {
     log.info("Queue Families Used:", queue_family_indices)
 
     return true
+}
+
+SwapchainSettings :: struct {
+    surface_format: vk.SurfaceFormatKHR,
+    present_mode: vk.PresentModeKHR,
+    image_count: u32,
+    transform: vk.SurfaceTransformFlagsKHR
+}
+
+get_swapchain_settings :: proc(using renderer: ^Renderer) -> (swapchain_settings: SwapchainSettings) {
+    capabilities: vk.SurfaceCapabilitiesKHR
+    vk.GetPhysicalDeviceSurfaceCapabilitiesKHR(physical_device, surface, &capabilities)
+
+    num_formats: u32
+    vk.GetPhysicalDeviceSurfaceFormatsKHR(physical_device, surface, &num_formats, nil)
+    formats := make([]vk.SurfaceFormatKHR, num_formats)
+    defer delete(formats)
+    vk.GetPhysicalDeviceSurfaceFormatsKHR(physical_device, surface, &num_formats, &formats[0])
+
+    num_present_modes: u32
+    vk.GetPhysicalDeviceSurfacePresentModesKHR(physical_device, surface, &num_present_modes, nil)
+    present_modes := make([]vk.PresentModeKHR, num_present_modes)
+    vk.GetPhysicalDeviceSurfacePresentModesKHR(physical_device, surface, &num_present_modes, &present_modes[0])
+
+    // Select Image Count
+    swapchain_settings.image_count = capabilities.minImageCount + 1
+    swapchain_settings.image_count = min(swapchain_settings.image_count, capabilities.maxImageCount)
+
+    // Select Transform
+    swapchain_settings.transform = capabilities.currentTransform
+
+    // Select Format
+    swapchain_settings.surface_format = formats[0] // default to first one for now.
+    for format in formats {
+        if (format.format == vk.Format.R8G8B8A8_SRGB || format.format == vk.Format.B8G8R8A8_SRGB) && format.colorSpace == vk.ColorSpaceKHR.COLORSPACE_SRGB_NONLINEAR {
+            swapchain_settings.surface_format = format
+            break
+        }
+    }
+
+    // Select Present Mode
+    swapchain_settings.present_mode = present_modes[0] // default to first one for now
+    for present_mode in present_modes {
+        if present_mode == vk.PresentModeKHR.MAILBOX {
+            swapchain_settings.present_mode = present_mode
+            break
+        }
+    }
+
+    return
 }

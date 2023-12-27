@@ -5,6 +5,7 @@ import "core:log"
 import "core:fmt"
 import vk "vendor:vulkan"
 import sdl "vendor:sdl2"
+import "../boco_window"
 
 foreign import vulkan "vulkan-1.lib"
 
@@ -42,12 +43,16 @@ RendererInternals :: struct {
     instance: vk.Instance,
     physical_device: vk.PhysicalDevice,
     logical_device: vk.Device,
+    old_swapchain: vk.SwapchainKHR,
+    swapchain: vk.SwapchainKHR,
 
     debug_messenger: vk.DebugUtilsMessengerEXT,
     enabled_features: RendererFeatures,
 
     // NOTE: Only 1 queue of each type, might want to expand this later.
     queues: [QueueFamilyType]vk.Queue,
+
+    surface: vk.SurfaceKHR,
 
     queue_family_indices: [QueueFamilyType]u32
 }
@@ -89,12 +94,16 @@ init_vulkan :: proc(using renderer: ^Renderer) -> (ok: bool = false)
     init_instance(renderer, layers[:], instance_extensions[:]) or_return
 
     when ODIN_DEBUG {
-        init_debug_messenger(renderer)
+        init_debug_messenger(renderer) or_return
     }
 
-    query_best_device(renderer)
+    init_surface(renderer) or_return
+
+    query_best_device(renderer) or_return
 
     init_device(renderer, layers[:], device_extensions[:]) or_return
+
+    init_swapchain(renderer)
 
     return true
 }
@@ -102,11 +111,12 @@ init_vulkan :: proc(using renderer: ^Renderer) -> (ok: bool = false)
 cleanup_vulkan :: proc(using renderer: ^Renderer) {
     log.info("Cleaning Vulkan resources")
 
+    vk.DestroySwapchainKHR(logical_device, swapchain, nil)
+    vk.DestroyDevice(logical_device, nil)
+    vk.DestroySurfaceKHR(instance, surface, nil)
     when ODIN_DEBUG {
         vk.DestroyDebugUtilsMessengerEXT(instance, debug_messenger, nil)
     }
-
-    vk.DestroyDevice(logical_device, nil)
     vk.DestroyInstance(instance, nil)
 }
 
@@ -157,11 +167,15 @@ init_instance :: proc(using renderer: ^Renderer, layers, extensions: []cstring) 
     return true
 }
 
+init_surface :: proc(using renderer: ^Renderer) -> bool {
+    return boco_window.create_window_surface(main_window, renderer.instance, &surface)
+}
+
 init_debug_messenger :: proc(using renderer: ^Renderer) -> (ok: bool = false) {
     debug_messenger_info : vk.DebugUtilsMessengerCreateInfoEXT
     fill_debug_messenger_info(&debug_messenger_info)
-    ret := vk.CreateDebugUtilsMessengerEXT(instance, &debug_messenger_info, nil, &debug_messenger)
-    log.info(ret)
+    res := vk.CreateDebugUtilsMessengerEXT(instance, &debug_messenger_info, nil, &debug_messenger)
+    log.info(res)
 
     return true
 }
@@ -217,5 +231,34 @@ init_device :: proc(using renderer: ^Renderer, layers, extensions: []cstring) ->
     }
 
     log.info("Created Device")
+    return true
+}
+
+init_swapchain :: proc(using renderer: ^Renderer) -> (ok: bool = false) {
+    swapchain_settings := get_swapchain_settings(renderer)
+
+    extent : vk.Extent2D = {main_window.width, main_window.height}
+
+    info : vk.SwapchainCreateInfoKHR
+    info.sType = .SWAPCHAIN_CREATE_INFO_KHR
+    info.surface = surface
+    info.minImageCount = swapchain_settings.image_count
+    info.imageFormat = swapchain_settings.surface_format.format
+    info.imageColorSpace = swapchain_settings.surface_format.colorSpace
+    info.imageExtent = extent
+    info.imageArrayLayers = 1
+    info.imageUsage = {.COLOR_ATTACHMENT}
+    info.imageSharingMode = .EXCLUSIVE
+    info.preTransform = swapchain_settings.transform
+    info.compositeAlpha = {.OPAQUE}
+    info.presentMode = swapchain_settings.present_mode
+    info.clipped = true
+    info.oldSwapchain = old_swapchain
+
+    old_swapchain = swapchain
+    
+    (vk.CreateSwapchainKHR(logical_device, &info, nil, &swapchain) == .SUCCESS) or_return
+    log.info("Created Swapchain")
+
     return true
 }
