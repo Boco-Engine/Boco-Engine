@@ -10,7 +10,7 @@ Window :: struct {
     width: u32,
     height: u32,
     view_window: ^sdl.Window,
-    view_area: ^ViewArea,
+    view_area: ViewArea,
     child_windows: [dynamic]Window
 }
 
@@ -21,14 +21,17 @@ init :: proc(using window: ^Window) -> (ok: bool = true) {
 }
 
 update :: proc(using window: ^Window) -> (ok: bool = true) {
-    update_child_windows(window)
     event: sdl.Event
-    for sdl.PollEvent(&event) {
-        #partial switch event.type {
-        case .QUIT:
-            return false
+    if event.window.windowID == sdl.GetWindowID(window.view_window){
+        for sdl.PollEvent(&event) {
+            #partial switch event.type {
+            case .QUIT:
+                return false
+            }
         }
     }
+    update_child_windows(window)
+    
     return true
 }
 
@@ -43,7 +46,7 @@ update_child_windows :: proc(using window: ^Window){
         child_window := &child_windows[i]
         if (!update(child_window)){
             cleanup(child_window)
-            ordered_remove(&child_windows, i)
+            unordered_remove(&child_windows, i)
         }
     }
 }
@@ -52,9 +55,8 @@ cleanup :: proc(using window: ^Window) {
     log.info("Cleaning window resources")
 
     length := len(&child_windows)
-    for i := length - 1; i >= 0; i -= 1{
-        child_window := &child_windows[i]
-        cleanup(child_window)
+    for &window in child_windows{
+        cleanup(&window)
     }
     delete(child_windows)
 
