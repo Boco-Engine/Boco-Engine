@@ -1,5 +1,7 @@
 package BocoEngine
 
+GRAPHICS_API :: #config(GRAPHICS_API, "vulkan")
+
 import "core:log"
 import "core:fmt"
 import "core:os"
@@ -40,12 +42,12 @@ main :: proc() {
 
     engine : Engine
 
-    if !init_engine(&engine) {
+    if !init(&engine) {
         log.error("Failed initialising engine")
         return 
     }
 
-    run_engine(&engine)
+    run(&engine)
 
-    cleanup_engine(&engine)
+    cleanup(&engine)
 }
