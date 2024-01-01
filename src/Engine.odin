@@ -22,6 +22,7 @@ init_engine :: proc(using engine: ^Engine) -> (ok: bool = false) {
     }
 
     boco_window.init_window(&window) or_return
+    renderer.main_window = &window
     boco_renderer.init_renderer(&renderer) or_return
 
     running = true
@@ -31,7 +32,7 @@ init_engine :: proc(using engine: ^Engine) -> (ok: bool = false) {
 run_engine :: proc(using engine: ^Engine) {
     log.info("Running Engine main loop")
     for running {
-        running = false
+        running = boco_window.update_window(&window)
     }
 }
 

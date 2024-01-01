@@ -239,7 +239,7 @@ SwapchainSettings :: struct {
     transform: vk.SurfaceTransformFlagsKHR
 }
 
-get_swapchain_settings :: proc(using renderer: ^Renderer) -> (swapchain_settings: SwapchainSettings) {
+get_swapchain_settings :: proc(using renderer: ^Renderer) -> (settings: SwapchainSettings) {
     capabilities: vk.SurfaceCapabilitiesKHR
     vk.GetPhysicalDeviceSurfaceCapabilitiesKHR(physical_device, surface, &capabilities)
 
@@ -255,26 +255,26 @@ get_swapchain_settings :: proc(using renderer: ^Renderer) -> (swapchain_settings
     vk.GetPhysicalDeviceSurfacePresentModesKHR(physical_device, surface, &num_present_modes, &present_modes[0])
 
     // Select Image Count
-    swapchain_settings.image_count = capabilities.minImageCount + 1
-    swapchain_settings.image_count = min(swapchain_settings.image_count, capabilities.maxImageCount)
+    settings.image_count = capabilities.minImageCount + 1
+    settings.image_count = min(settings.image_count, capabilities.maxImageCount)
 
     // Select Transform
-    swapchain_settings.transform = capabilities.currentTransform
+    settings.transform = capabilities.currentTransform
 
     // Select Format
-    swapchain_settings.surface_format = formats[0] // default to first one for now.
+    settings.surface_format = formats[0] // default to first one for now.
     for format in formats {
         if (format.format == vk.Format.R8G8B8A8_SRGB || format.format == vk.Format.B8G8R8A8_SRGB) && format.colorSpace == vk.ColorSpaceKHR.COLORSPACE_SRGB_NONLINEAR {
-            swapchain_settings.surface_format = format
+            settings.surface_format = format
             break
         }
     }
 
     // Select Present Mode
-    swapchain_settings.present_mode = present_modes[0] // default to first one for now
+    settings.present_mode = present_modes[0] // default to first one for now
     for present_mode in present_modes {
         if present_mode == vk.PresentModeKHR.MAILBOX {
-            swapchain_settings.present_mode = present_mode
+            settings.present_mode = present_mode
             break
         }
     }

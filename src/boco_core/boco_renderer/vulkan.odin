@@ -45,6 +45,11 @@ RendererInternals :: struct {
     logical_device: vk.Device,
     old_swapchain: vk.SwapchainKHR,
     swapchain: vk.SwapchainKHR,
+    swapchain_settings: SwapchainSettings,
+
+    // Can pre allocate this to some max size, wont be too large and would keep data more local.
+    swapchain_images: []vk.Image,
+    swapchain_imageviews: []vk.ImageView,
 
     debug_messenger: vk.DebugUtilsMessengerEXT,
     enabled_features: RendererFeatures,
@@ -111,6 +116,11 @@ init_vulkan :: proc(using renderer: ^Renderer) -> (ok: bool = false)
 cleanup_vulkan :: proc(using renderer: ^Renderer) {
     log.info("Cleaning Vulkan resources")
 
+    for &imageview in swapchain_imageviews {
+        vk.DestroyImageView(logical_device, imageview, nil)
+    }
+    delete(swapchain_images)
+    delete(swapchain_imageviews)
     vk.DestroySwapchainKHR(logical_device, swapchain, nil)
     vk.DestroyDevice(logical_device, nil)
     vk.DestroySurfaceKHR(instance, surface, nil)
@@ -235,7 +245,7 @@ init_device :: proc(using renderer: ^Renderer, layers, extensions: []cstring) ->
 }
 
 init_swapchain :: proc(using renderer: ^Renderer) -> (ok: bool = false) {
-    swapchain_settings := get_swapchain_settings(renderer)
+    swapchain_settings = get_swapchain_settings(renderer)
 
     extent : vk.Extent2D = {main_window.width, main_window.height}
 
@@ -260,5 +270,19 @@ init_swapchain :: proc(using renderer: ^Renderer) -> (ok: bool = false) {
     (vk.CreateSwapchainKHR(logical_device, &info, nil, &swapchain) == .SUCCESS) or_return
     log.info("Created Swapchain")
 
+    retrieve_swapchain_images(renderer)
+
     return true
+}
+
+retrieve_swapchain_images :: proc(using renderer: ^Renderer) {
+    // Overwrites what we set as image count to actual used, as vulkan might use different amount.
+    vk.GetSwapchainImagesKHR(logical_device, swapchain, &swapchain_settings.image_count, nil)
+    swapchain_images = make([]vk.Image, swapchain_settings.image_count)
+    vk.GetSwapchainImagesKHR(logical_device, swapchain, &swapchain_settings.image_count, &swapchain_images[0])
+
+    swapchain_imageviews = make([]vk.ImageView, swapchain_settings.image_count)
+    for image, index in swapchain_images {
+        swapchain_imageviews[index] = create_imageview(renderer, swapchain_images[0], swapchain_settings.surface_format.format, {.COLOR})
+    }
 }
