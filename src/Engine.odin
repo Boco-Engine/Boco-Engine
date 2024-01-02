@@ -33,6 +33,8 @@ run_engine :: proc(using engine: ^Engine) {
     log.info("Running Engine main loop")
     for running {
         running = boco_window.update_window(&window)
+        boco_renderer.record_to_command_buffer(&renderer)
+        boco_renderer.submit_render(&renderer)
     }
 }
 

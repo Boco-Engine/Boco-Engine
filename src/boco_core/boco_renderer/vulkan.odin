@@ -40,26 +40,45 @@ QueueFamilyType :: enum {
 }
 
 RendererInternals :: struct {
+    // Vulkan Objects
     instance: vk.Instance,
     physical_device: vk.PhysicalDevice,
     logical_device: vk.Device,
     old_swapchain: vk.SwapchainKHR,
     swapchain: vk.SwapchainKHR,
-    swapchain_settings: SwapchainSettings,
+    render_pass: vk.RenderPass,
+    framebuffers: []vk.Framebuffer,
+    descriptor_pool: vk.DescriptorPool,
+    pipeline_layout: vk.PipelineLayout,
+    graphics_pipeline: vk.Pipeline,
+    // NOTE: Only 1 queue of each type, might want to expand this later.
+    queues: [QueueFamilyType]vk.Queue,
+    surface: vk.SurfaceKHR,
 
+    // Resources
     // Can pre allocate this to some max size, wont be too large and would keep data more local.
     swapchain_images: []vk.Image,
     swapchain_imageviews: []vk.ImageView,
 
-    debug_messenger: vk.DebugUtilsMessengerEXT,
+    // Options
     enabled_features: RendererFeatures,
+    queue_family_indices: [QueueFamilyType]u32,
+    swapchain_settings: SwapchainSettings,
 
-    // NOTE: Only 1 queue of each type, might want to expand this later.
-    queues: [QueueFamilyType]vk.Queue,
+    // For Rendering
+    command_pool: vk.CommandPool,
+    command_buffers: []vk.CommandBuffer,
+    viewport : vk.Viewport,
+    scissor: vk.Rect2D,
+    current_frame_index: u32,
 
-    surface: vk.SurfaceKHR,
-
-    queue_family_indices: [QueueFamilyType]u32
+    // Synchronization
+    image_available: []vk.Semaphore,
+    render_finished: []vk.Semaphore,
+    in_flight: []vk.Fence,
+    
+    // DEBUG
+    debug_messenger: vk.DebugUtilsMessengerEXT,
 }
 
 // TODO: Add Vulkan debug callback for more detailed messages.
@@ -110,12 +129,54 @@ init_vulkan :: proc(using renderer: ^Renderer) -> (ok: bool = false)
 
     init_swapchain(renderer)
 
+    init_render_pass(renderer)
+
+    create_pipeline_layout(renderer)
+
+    // TODO: This needs to be managed somehow to be the render areas size, not entire windows!
+	scissor.extent = {main_window.width, main_window.height}
+	viewport.width = cast(f32)main_window.width
+	viewport.height = cast(f32)main_window.height
+	viewport.minDepth = 0.0
+	viewport.maxDepth = 1.0
+    
+    create_graphics_pipeline(renderer)
+
+    create_framebuffers(renderer)
+
+    create_command_pool(renderer)
+
+    create_command_buffers(renderer)
+
+    create_semaphores_and_fences(renderer)
+
     return true
 }
 
 cleanup_vulkan :: proc(using renderer: ^Renderer) {
     log.info("Cleaning Vulkan resources")
 
+    vk.DeviceWaitIdle(logical_device)
+
+    for i in 0..<swapchain_settings.image_count {
+        vk.DestroySemaphore(logical_device, image_available[i], nil)
+        vk.DestroySemaphore(logical_device, render_finished[i], nil)
+        vk.DestroyFence(logical_device, in_flight[i], nil)
+    }
+    delete(image_available)
+    delete(render_finished)
+    delete(in_flight)
+
+    vk.DestroyCommandPool(logical_device, command_pool, nil)
+    delete(command_buffers)
+    for framebuffer in framebuffers {
+        vk.DestroyFramebuffer(logical_device, framebuffer, nil)
+    }
+    delete(framebuffers)
+    vk.DestroyPipeline(logical_device, graphics_pipeline, nil)
+    vk.DestroyPipelineLayout(logical_device, pipeline_layout, nil)
+    vk.DestroyDescriptorPool(logical_device, descriptor_pool, nil)
+    vk.DestroyRenderPass(logical_device, render_pass, nil)
     for &imageview in swapchain_imageviews {
         vk.DestroyImageView(logical_device, imageview, nil)
     }
@@ -279,10 +340,134 @@ retrieve_swapchain_images :: proc(using renderer: ^Renderer) {
     // Overwrites what we set as image count to actual used, as vulkan might use different amount.
     vk.GetSwapchainImagesKHR(logical_device, swapchain, &swapchain_settings.image_count, nil)
     swapchain_images = make([]vk.Image, swapchain_settings.image_count)
-    vk.GetSwapchainImagesKHR(logical_device, swapchain, &swapchain_settings.image_count, &swapchain_images[0])
+    log.debug(vk.GetSwapchainImagesKHR(logical_device, swapchain, &swapchain_settings.image_count, &swapchain_images[0]))
 
     swapchain_imageviews = make([]vk.ImageView, swapchain_settings.image_count)
     for image, index in swapchain_images {
-        swapchain_imageviews[index] = create_imageview(renderer, swapchain_images[0], swapchain_settings.surface_format.format, {.COLOR})
+        swapchain_imageviews[index] = create_imageview(renderer, swapchain_images[index], swapchain_settings.surface_format.format, {.COLOR})
     }
+}
+
+init_render_pass :: proc(using renderer: ^Renderer) -> bool {
+    // TODO: Add Depth, Multisample, ...
+    attachment_descriptions: [1]vk.AttachmentDescription
+
+    // Output Attachment
+    attachment_descriptions[0].format = swapchain_settings.surface_format.format
+    attachment_descriptions[0].loadOp = .CLEAR
+    attachment_descriptions[0].storeOp = .STORE
+    attachment_descriptions[0].initialLayout = .UNDEFINED
+    attachment_descriptions[0].finalLayout = .PRESENT_SRC_KHR
+    attachment_descriptions[0].samples = { ._1 }
+
+    // Dependencies
+    dependencies: [1]vk.SubpassDependency
+    dependencies[0].srcStageMask = {.COLOR_ATTACHMENT_OUTPUT, .EARLY_FRAGMENT_TESTS}
+    dependencies[0].srcAccessMask = {}
+    dependencies[0].dstStageMask = {.COLOR_ATTACHMENT_OUTPUT, .EARLY_FRAGMENT_TESTS}
+    dependencies[0].dstAccessMask = {.COLOR_ATTACHMENT_WRITE, .DEPTH_STENCIL_ATTACHMENT_WRITE}
+    dependencies[0].srcSubpass = vk.SUBPASS_EXTERNAL
+    dependencies[0].dstSubpass = 0
+
+    // References
+    references: [1]vk.AttachmentReference
+
+    // Output Ref
+    references[0].attachment = 0
+    references[0].layout = .COLOR_ATTACHMENT_OPTIMAL
+
+    subpass_descriptions: [1]vk.SubpassDescription
+    subpass_descriptions[0].colorAttachmentCount = 1
+    subpass_descriptions[0].pColorAttachments = &references[0]
+    subpass_descriptions[0].inputAttachmentCount = 0
+    subpass_descriptions[0].pInputAttachments = nil
+    subpass_descriptions[0].pDepthStencilAttachment = nil
+    subpass_descriptions[0].pPreserveAttachments = nil
+    subpass_descriptions[0].pResolveAttachments = nil
+    subpass_descriptions[0].pipelineBindPoint = .GRAPHICS
+
+    // Renderpass
+    render_pass_info: vk.RenderPassCreateInfo
+    render_pass_info.sType = .RENDER_PASS_CREATE_INFO
+    render_pass_info.attachmentCount = len(attachment_descriptions)
+    render_pass_info.pAttachments = &attachment_descriptions[0]
+    // render_pass_info.dependencyCount = len(dependencies)
+    // render_pass_info.pDependencies = &dependencies[0]
+    render_pass_info.subpassCount = len(subpass_descriptions)
+    render_pass_info.pSubpasses = &subpass_descriptions[0]
+
+    res := vk.CreateRenderPass(logical_device, &render_pass_info, nil, &render_pass)
+    if res != .SUCCESS do return false
+
+    return true
+}
+
+create_framebuffers :: proc(using renderer: ^Renderer) -> bool {
+    framebuffers = make([]vk.Framebuffer, swapchain_settings.image_count)
+
+    for &imageview, index in swapchain_imageviews {
+        // TODO: Add Attachments for depth, multiview, ...
+        attachments := [?]vk.ImageView{
+            imageview
+        }
+
+        // FRAMEBUFFER
+        framebuffer_info: vk.FramebufferCreateInfo
+        framebuffer_info.sType = .FRAMEBUFFER_CREATE_INFO
+        framebuffer_info.attachmentCount = cast(u32)len(attachments)
+        framebuffer_info.pAttachments = &attachments[0]
+        framebuffer_info.width = main_window.width
+        framebuffer_info.height = main_window.height
+        framebuffer_info.layers = 1
+        framebuffer_info.renderPass = render_pass
+
+        vk.CreateFramebuffer(logical_device, &framebuffer_info, nil, &framebuffers[index])
+    }
+
+    return true
+}
+
+create_command_pool :: proc(using renderer: ^Renderer) -> bool {
+    command_pool_info : vk.CommandPoolCreateInfo
+	command_pool_info.sType = .COMMAND_POOL_CREATE_INFO
+	command_pool_info.flags = {.RESET_COMMAND_BUFFER}
+	command_pool_info.queueFamilyIndex = cast(u32)queue_family_indices[.GRAPHICS]
+
+	vk.CreateCommandPool(logical_device, &command_pool_info, nil, &command_pool)
+
+    return true
+}
+
+create_command_buffers :: proc(using renderer: ^Renderer) -> bool {
+    command_buffers = make([]vk.CommandBuffer, swapchain_settings.image_count)
+
+    // Making a command buffer for each swapchain image. probably need to extend this.
+    allocate_info: vk.CommandBufferAllocateInfo
+	allocate_info.sType = .COMMAND_BUFFER_ALLOCATE_INFO
+	allocate_info.commandPool = command_pool
+	allocate_info.level = .PRIMARY
+	allocate_info.commandBufferCount = swapchain_settings.image_count
+
+	vk.AllocateCommandBuffers(logical_device, &allocate_info, &command_buffers[0])
+
+    return true
+}
+
+create_semaphores_and_fences :: proc(using renderer: ^Renderer) {
+    image_available =   make([]vk.Semaphore,    swapchain_settings.image_count)
+    render_finished =   make([]vk.Semaphore,    swapchain_settings.image_count)
+    in_flight       =   make([]vk.Fence,        swapchain_settings.image_count)
+
+	for i in 0..<swapchain_settings.image_count {
+		semaphore_info: vk.SemaphoreCreateInfo
+		semaphore_info.sType = .SEMAPHORE_CREATE_INFO
+
+		vk.CreateSemaphore(logical_device, &semaphore_info, nil, &image_available[i])
+		vk.CreateSemaphore(logical_device, &semaphore_info, nil, &render_finished[i])
+
+		fence_info: vk.FenceCreateInfo
+		fence_info.sType = .FENCE_CREATE_INFO
+		fence_info.flags = {.SIGNALED}
+		vk.CreateFence(logical_device, &fence_info, nil, &in_flight[i])
+	}
 }
