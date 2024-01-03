@@ -17,14 +17,22 @@ BufferResources :: struct {
     data_ptr: rawptr
 }
 
+Vertex :: struct {
+	position: Vec3,
+	normal: Vec3,
+	texture_coords: Vec2
+}
+
 IndexedMesh :: struct {
     // Data
-    vertices: []Vec3,
-    indicies: []u32,
-    normals: []Vec3,
+    // TODO: Texture Data
+    push_constant: PushConstant,
+    vertex_data: []Vertex,
+    index_data: []u32,
 
     // Resources
-    vertex_buffer: BufferResources,
-    index_buffer: BufferResources,
+    // TODO: Offset and size of buffer resource to allow preallocating large buffers.
+    vertex_buffer_resource: BufferResources,
+    index_buffer_resource: BufferResources,
 
 }

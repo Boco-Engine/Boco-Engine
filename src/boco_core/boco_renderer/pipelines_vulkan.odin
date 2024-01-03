@@ -83,12 +83,35 @@ create_graphics_pipeline :: proc(using renderer : ^Renderer) -> bool {
     // TODO: Add and decide on information to pass.
     // TODO: Vertex Bindings
     // TODO: Vertex Inputs
+    vertex_bindings : vk.VertexInputBindingDescription
+    vertex_bindings.binding = 0
+    vertex_bindings.stride = size_of(Vertex)
+    vertex_bindings.inputRate = .VERTEX
+    // TODO: Add Instance bindings
+
+    vertex_attributes : [3]vk.VertexInputAttributeDescription
+    // Position
+    vertex_attributes[0].binding = 0
+    vertex_attributes[0].format = .R32G32B32_SFLOAT
+    vertex_attributes[0].location = 0
+    vertex_attributes[0].offset = auto_cast offset_of(Vertex, position)
+    // Normal
+    vertex_attributes[1].binding = 0
+    vertex_attributes[1].format = .R32G32B32_SFLOAT
+    vertex_attributes[1].location = 1
+    vertex_attributes[1].offset = auto_cast offset_of(Vertex, normal)
+    // Texture Coords
+    vertex_attributes[2].binding = 0
+    vertex_attributes[2].format = .R32G32_SFLOAT
+    vertex_attributes[2].location = 2
+    vertex_attributes[2].offset = auto_cast offset_of(Vertex, texture_coords)
+    
     vertex_input_info: vk.PipelineVertexInputStateCreateInfo
     vertex_input_info.sType = .PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO
-    vertex_input_info.vertexBindingDescriptionCount = 0
-    vertex_input_info.pVertexBindingDescriptions = nil
-    vertex_input_info.vertexAttributeDescriptionCount = 0
-    vertex_input_info.pVertexAttributeDescriptions = nil
+    vertex_input_info.vertexBindingDescriptionCount = 1
+    vertex_input_info.pVertexBindingDescriptions = &vertex_bindings
+    vertex_input_info.vertexAttributeDescriptionCount = len(vertex_attributes)
+    vertex_input_info.pVertexAttributeDescriptions = &vertex_attributes[0]
 
     // Vertex Input Assembly
     vertex_input_assembly_info: vk.PipelineInputAssemblyStateCreateInfo

@@ -29,7 +29,9 @@ Renderer :: struct {
     using _renderer_internals : RendererInternals,
     main_window : ^boco_window.Window,
 
-    needs_recreation : bool
+    needs_recreation : bool,
+
+    indexed_meshes: [dynamic]^IndexedMesh,
 }
 
 init_renderer :: proc(using renderer: ^Renderer) -> (ok: bool = true) {
@@ -51,3 +53,6 @@ cleanup_renderer :: proc(using renderer: ^Renderer) {
     cleanup_graphics_api(renderer)
 }
 
+add_mesh :: proc(using renderer: ^Renderer, mesh: ^IndexedMesh) {
+    append(&renderer.indexed_meshes, mesh);
+}

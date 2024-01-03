@@ -37,8 +37,23 @@ record_to_command_buffer :: proc(using renderer: ^Renderer) {
 
 		vk.CmdBindPipeline(cmd_buffer, .GRAPHICS, graphics_pipeline)
 
-        // TODO: Add Mesh Rendering.
-        vk.CmdDraw(cmd_buffer, 3, 1, 0, 0);
+		for mesh in indexed_meshes {
+			offsets := [?]vk.DeviceSize{0}
+
+			// TODO: Need camera for projection and view matrices.
+			mvp := Mat4{
+				1, 0, 0, 0,
+				0, 1, 0, 0,
+				0, 0, 1, 0,
+				0, 0, 0, 1,
+			}
+
+			vk.CmdPushConstants(cmd_buffer, pipeline_layout, {.VERTEX}, 0, size_of(mvp), &mvp)
+			vk.CmdBindVertexBuffers(cmd_buffer, 0, 1, &mesh.vertex_buffer_resource.buffer, &offsets[0])
+			vk.CmdBindIndexBuffer(cmd_buffer, mesh.index_buffer_resource.buffer, 0, .UINT32)
+
+			vk.CmdDrawIndexed(cmd_buffer, cast(u32)len(mesh.index_data), 1, 0, 0, 0)
+		}
 
 		vk.CmdEndRenderPass(cmd_buffer)
 	}

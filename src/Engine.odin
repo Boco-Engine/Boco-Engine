@@ -5,6 +5,8 @@ import "core:log"
 import "boco_core/boco_renderer"
 import "boco_core/boco_window"
 import "core:runtime"
+import "core:time"
+import "benchmarks"
 
 Engine :: struct {
     running : bool,
@@ -24,6 +26,25 @@ init_engine :: proc(using engine: ^Engine) -> (ok: bool = false) {
     boco_window.init_window(&window) or_return
     renderer.main_window = &window
     boco_renderer.init_renderer(&renderer) or_return
+
+    temp := context.logger.procedure
+    context.logger.procedure = nil
+
+    // TODO: Need a game loop, where we can init, update, and cleanup game resources.
+    // LOAD MESH
+    mesh := new(boco_renderer.IndexedMesh)
+    mesh_err : bool
+    mesh^, mesh_err = boco_renderer.read_obj_mesh("Gun.obj")
+    // CREATE VERTEX BUFFER
+    boco_renderer.allocate_buffer(&renderer, boco_renderer.Vertex, auto_cast len(mesh.vertex_data), {.VERTEX_BUFFER}, &mesh.vertex_buffer_resource)
+    boco_renderer.write_to_buffer(&renderer, &mesh.vertex_buffer_resource, mesh.vertex_data, 0)
+    // CREATE INDEX BUFFER
+    boco_renderer.allocate_buffer(&renderer, u32, auto_cast len(mesh.index_data), {.INDEX_BUFFER}, &mesh.index_buffer_resource)
+    boco_renderer.write_to_buffer(&renderer, &mesh.index_buffer_resource, mesh.index_data, 0)
+    // ADD TO DRAW LIST
+    boco_renderer.add_mesh(&renderer, mesh)
+    // TODO: Add a cleanup_mesh function for deleting all mesh resources.
+    // TODO: ^
 
     running = true
     return true

@@ -3,3 +3,7 @@ build/
 ols.json
 temp/
 *.pdb
+
+# Meshes
+*.obj
+*.fbx

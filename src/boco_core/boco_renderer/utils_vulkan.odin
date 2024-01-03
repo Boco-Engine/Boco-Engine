@@ -281,3 +281,22 @@ get_swapchain_settings :: proc(using renderer: ^Renderer) -> (settings: Swapchai
 
     return
 }
+
+create_indexed_mesh :: proc(vertex_data: []Vec3, index_data: []u32) {
+    
+}
+
+get_memory_from_properties :: proc(using renderer: ^Renderer, properties: vk.MemoryPropertyFlags) -> (u32) {
+	available_properties: vk.PhysicalDeviceMemoryProperties
+	vk.GetPhysicalDeviceMemoryProperties(physical_device, &available_properties)
+
+	for i in 0..<available_properties.memoryTypeCount {
+		if (available_properties.memoryTypes[i].propertyFlags & properties) == properties {
+			return i
+		}
+	}
+
+	log.error("Failed to find supported memory.")
+
+	return 0
+}
