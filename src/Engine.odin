@@ -34,7 +34,7 @@ init_engine :: proc(using engine: ^Engine) -> (ok: bool = false) {
     // LOAD MESH
     mesh := new(boco_renderer.IndexedMesh)
     mesh_err : bool
-    mesh^, mesh_err = boco_renderer.read_obj_mesh("Gun.obj")
+    mesh^, mesh_err = boco_renderer.read_obj_mesh("jet_engine.obj")
     // CREATE VERTEX BUFFER
     boco_renderer.allocate_buffer(&renderer, boco_renderer.Vertex, auto_cast len(mesh.vertex_data), {.VERTEX_BUFFER}, &mesh.vertex_buffer_resource)
     boco_renderer.write_to_buffer(&renderer, &mesh.vertex_buffer_resource, mesh.vertex_data, 0)
@@ -53,7 +53,8 @@ init_engine :: proc(using engine: ^Engine) -> (ok: bool = false) {
 run_engine :: proc(using engine: ^Engine) {
     log.info("Running Engine main loop")
     for running {
-        running = boco_window.update_window(&window)
+        running &= boco_window.update_window(&window)
+        running &= boco_renderer.update(&renderer)
         boco_renderer.record_to_command_buffer(&renderer)
         boco_renderer.submit_render(&renderer)
     }

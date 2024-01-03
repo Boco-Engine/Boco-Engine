@@ -61,8 +61,8 @@ read_obj_mesh :: proc(file_name : string) -> (mesh : IndexedMesh, err: bool = fa
     index_count := 0
 
     // Count vertices and indicies first to allocate the memory
-    // MARKER Can also use dynamic arrays, should time both to see which is faster.
-    // MARKER Will only create vertices for number of unique vertices in file, however faces will have different normals.
+    // NOTE: Can also use dynamic arrays, should time both to see which is faster.
+    // NOTE: Will only create vertices for number of unique vertices in file, however faces will have different normals.
     for line in strings.split_lines_iterator(&data) {
         parts := strings.split(line, " ")
 
@@ -168,7 +168,8 @@ read_obj_mesh :: proc(file_name : string) -> (mesh : IndexedMesh, err: bool = fa
 
                         index_count += 1
                     }
-                } else if len(parts) == 5 { // Quad TODO: This is not how this works apparently
+                // Quad TODO: This is not how this works apparently
+                } else if len(parts) == 5 { 
                     // FIRST
                     face1_indices := strings.split(parts[1], "/")
                     vertex1_index, texture1_index, normal1_index : uint
@@ -213,9 +214,9 @@ read_obj_mesh :: proc(file_name : string) -> (mesh : IndexedMesh, err: bool = fa
                     index_count += 1
 
                     // RE-ADD THIRD AND SECOND
-                    mesh.index_data[index_count] = cast(u32)vertex3_index - 1
+                    mesh.index_data[index_count] = cast(u32)vertex1_index - 1
                     index_count += 1
-                    mesh.index_data[index_count] = cast(u32)vertex2_index - 1
+                    mesh.index_data[index_count] = cast(u32)vertex3_index - 1
                     index_count += 1
 
                     // FOURTH

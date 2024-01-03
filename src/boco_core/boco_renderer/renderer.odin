@@ -31,11 +31,19 @@ Renderer :: struct {
 
     needs_recreation : bool,
 
+    // TODO: Create Scene class which can hold cameras and relevant stuff for rendering.
+    camera: Camera,
+
     indexed_meshes: [dynamic]^IndexedMesh,
 }
 
 init_renderer :: proc(using renderer: ^Renderer) -> (ok: bool = true) {
     ok = init_graphics_api(renderer)
+
+    camera = make_camera(
+        fov = 70, 
+        aspect_ratio = cast(f32)main_window.width / cast(f32)main_window.height
+    )
 
     if !ok {
         log.error("Failed to initialise Vulkan")
@@ -43,6 +51,11 @@ init_renderer :: proc(using renderer: ^Renderer) -> (ok: bool = true) {
     }
 
     return
+}
+
+update :: proc(using renderer: ^Renderer) -> bool {
+    update_camera(&camera, 0);
+    return true
 }
 
 version :: proc() -> string {

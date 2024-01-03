@@ -116,7 +116,7 @@ create_graphics_pipeline :: proc(using renderer : ^Renderer) -> bool {
     // Vertex Input Assembly
     vertex_input_assembly_info: vk.PipelineInputAssemblyStateCreateInfo
     vertex_input_assembly_info.sType = .PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO
-    vertex_input_assembly_info.topology = .TRIANGLE_STRIP
+    vertex_input_assembly_info.topology = .TRIANGLE_LIST
     vertex_input_assembly_info.primitiveRestartEnable = false
 
     // Tesselation
