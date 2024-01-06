@@ -10,6 +10,7 @@ Window :: struct {
     width: u32,
     height: u32,
     view_window: ^sdl.Window,
+    window_id: u32,
     view_area: ViewArea,
     child_windows: [dynamic]Window,
     parent_window: ^Window,
@@ -20,8 +21,11 @@ init :: proc(using window: ^Window, title: cstring = "BOCO") -> (ok: bool = true
     name = title
     log.info("Initialising Window:", name)
     view_window = sdl.CreateWindow(name, sdl.WINDOWPOS_UNDEFINED, sdl.WINDOWPOS_UNDEFINED, 500, 500, {.VULKAN, .RESIZABLE})
+    window_id = sdl.GetWindowID(view_window)
+    log.info("WindowID", window_id)
     if (parent_window == nil){
         create_child_window(window, "Child Window 1")
+        create_child_window(window, "Child Window 2")
     }
     return
 }
@@ -61,8 +65,12 @@ handle_window_event_or_delegate :: proc(using window: ^Window){
             is_ready_to_close = true
             log.info("Closing Application")
         case .WINDOWEVENT:
-            if event.window.windowID == sdl.GetWindowID(window.view_window){
+            if event.window.windowID == window_id{
                 window_event.window = window
+                log.info("_____________________")
+                log.info("Event window ID:", event.window.windowID)
+                log.info("----- window ID:", window_id)
+                log.info("_____________________")
                 #partial switch event.window.event {
                     case .CLOSE:
                         window_event.state = Window_state.Quit
@@ -70,6 +78,7 @@ handle_window_event_or_delegate :: proc(using window: ^Window){
                         log.info("Closing Window:", name)
                     case .FOCUS_GAINED:
                         window_event.state = Window_state.Focus
+                        log.info("Focusing Window:", name)
                     case .FOCUS_LOST:
                         window_event.state = Window_state.Unfocus
                     case .MOVED:
@@ -120,7 +129,7 @@ create_child_window :: proc(using window: ^Window, title: cstring = "BOCO"){
     new_window:Window
     new_window.parent_window = window
     append(&child_windows, new_window)
-    init(&new_window, title)
+    init(&child_windows[len(child_windows) - 1], title)
 }
 
 update_child_windows :: proc(using window: ^Window){
