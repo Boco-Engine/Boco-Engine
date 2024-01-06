@@ -23,10 +23,6 @@ init :: proc(using window: ^Window, title: cstring = "BOCO") -> (ok: bool = true
     view_window = sdl.CreateWindow(name, sdl.WINDOWPOS_UNDEFINED, sdl.WINDOWPOS_UNDEFINED, 500, 500, {.VULKAN, .RESIZABLE})
     window_id = sdl.GetWindowID(view_window)
     log.info("WindowID", window_id)
-    if (parent_window == nil){
-        create_child_window(window, "Child Window 1")
-        create_child_window(window, "Child Window 2")
-    }
     return
 }
 
