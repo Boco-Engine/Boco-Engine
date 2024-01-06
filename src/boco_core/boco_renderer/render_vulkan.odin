@@ -2,6 +2,7 @@ package boco_renderer
 
 import vk "vendor:vulkan"
 import "core:log"
+import "core:math"
 
 record_to_command_buffer :: proc(using renderer: ^Renderer) {
     cmd_buffer := command_buffers[current_frame_index]
@@ -19,8 +20,9 @@ record_to_command_buffer :: proc(using renderer: ^Renderer) {
 	vk.BeginCommandBuffer(cmd_buffer, &begin_info)
 	{
 		// These can be constants
-        clear_values : [1]vk.ClearValue
+        clear_values : [2]vk.ClearValue
         clear_values[0].color.float32 = [4]f32{0.1, 0.1, 0.1, 1}
+		clear_values[1].depthStencil.depth = 1.0
 
 		render_pass_begin_info: vk.RenderPassBeginInfo
 		render_pass_begin_info.sType = .RENDER_PASS_BEGIN_INFO
@@ -41,12 +43,16 @@ record_to_command_buffer :: proc(using renderer: ^Renderer) {
 			offsets := [?]vk.DeviceSize{0}
 
 			// TODO: Need camera for projection and view matrices.
-			mvp := Mat4{
-				1, 0, 0, 0,
-				0, 1, 0, 0,
+			mvp := mesh.push_constant.mvp
+
+			mvp *= Mat4{
+				math.cos_f32(0.1), -math.sin_f32(0.1), 0, 0,
+				math.sin_f32(0.1), math.cos_f32(0.1), 0, 0,
 				0, 0, 1, 0,
 				0, 0, 0, 1,
 			}
+
+			mesh.push_constant.mvp = mvp
 
 			mvp *= camera.viewMatrix
 			mvp *= camera.projectionMatrix

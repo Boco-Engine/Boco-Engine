@@ -162,8 +162,8 @@ create_graphics_pipeline :: proc(using renderer : ^Renderer) -> bool {
     // TODO: Add support for Depth.
     depth_stencil_info: vk.PipelineDepthStencilStateCreateInfo
     depth_stencil_info.sType = .PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO
-    depth_stencil_info.depthTestEnable = false
-    depth_stencil_info.depthWriteEnable = false
+    depth_stencil_info.depthTestEnable = true
+    depth_stencil_info.depthWriteEnable = true
     depth_stencil_info.depthCompareOp = .LESS
     depth_stencil_info.depthBoundsTestEnable = false
     depth_stencil_info.minDepthBounds = 0.0

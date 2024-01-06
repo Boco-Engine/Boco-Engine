@@ -4,6 +4,7 @@ import "core:os"
 import "core:strings"
 import "core:log"
 import "core:strconv"
+import "core:math/linalg/glsl"
 
 make_file_path :: proc(folder : string, file : string) -> (path : string) {
     builder := strings.builder_make(0, len(folder) + len(file) + 1)
@@ -38,6 +39,100 @@ read_mesh :: proc(file_name : string) -> (mesh : IndexedMesh, err: bool = false)
     }
 
     return {}, false
+}
+
+read_bocom_mesh :: proc(file_name: string) -> (mesh: IndexedMesh, err: bool = false) {
+    log.info("Reading BOCOM: ", file_name)
+    file_path := make_file_path("Assets/Meshes", file_name)
+
+    file_contents, ok := os.read_entire_file(file_path, context.allocator)
+    assert(ok, "Failed to read BOCOM file")
+
+    defer delete(file_contents, context.allocator)
+
+    data := string(file_contents)
+
+    vertex_count := 0
+    index_count := 0
+
+    processing := 0
+
+    lines := strings.split_lines(data)
+    index := 0
+    for index = 0; index < len(lines); index += 1 {
+        if lines[index][0] == '#' do continue
+
+        if lines[index][0:2] == "v:" {
+            vertex_count = strconv.atoi(lines[index][3:])
+            index += 1;
+            break;
+        }
+    }
+
+    mesh.vertex_data = make([]Vertex, vertex_count)
+    for vertex in 0..<vertex_count {
+        parts := strings.split(lines[index], "/")
+        position := parts[0]
+        position_parts := strings.split(position, " ")
+
+        mesh.vertex_data[vertex].position = {
+            cast(f32)strconv.atof(position_parts[0]),
+            cast(f32)strconv.atof(position_parts[1]),
+            cast(f32)strconv.atof(position_parts[2]),
+        }
+
+        mesh.vertex_data[vertex].normal = (mesh.vertex_data[vertex].position + 1000) / 2000
+
+        index += 1
+    }
+
+    for index = index; index < len(lines); index += 1 {
+        if lines[index][0] == '#' do continue
+
+        if lines[index][0:2] == "i:" {
+            index_count = strconv.atoi(lines[index][3:])
+
+            index += 1;
+            break;
+        }
+    }
+
+    mesh.index_data = make([]u32, index_count)
+    for i in 0..<(index_count/3) {
+        parts := strings.split(lines[index], " ")
+
+        mesh.index_data[i * 3] = cast(u32)strconv.atoi(parts[0])
+        mesh.index_data[i * 3 + 1] = cast(u32)strconv.atoi(parts[1])
+        mesh.index_data[i * 3 + 2] = cast(u32)strconv.atoi(parts[2])
+
+        // TEMP NORMALS CALC
+        tri1 := mesh.vertex_data[mesh.index_data[i * 3]]
+        tri2 := mesh.vertex_data[mesh.index_data[i * 3 + 1]]
+        tri3 := mesh.vertex_data[mesh.index_data[i * 3 + 2]]
+
+        A := tri2.position - tri1.position
+        B := tri3.position - tri1.position
+
+        normal := Vec3{
+            A[1] * B[2] - A[2] * B[1],
+            A[2] * B[0] - A[0] * B[2],
+            A[0] * B[1] - A[1] * B[0],
+        }
+
+        normal = auto_cast glsl.normalize_vec3(auto_cast normal)
+        normal += 1
+        normal /= 2
+
+        mesh.vertex_data[mesh.index_data[i * 3]].normal = normal
+        mesh.vertex_data[mesh.index_data[i * 3 + 1]].normal = normal
+        mesh.vertex_data[mesh.index_data[i * 3 + 2]].normal = normal
+
+        index += 1
+    }
+
+    log.debug(len(mesh.vertex_data))
+
+    return mesh, true
 }
 
 // TODO: This mesh reading needs complete rework.
@@ -117,11 +212,11 @@ read_obj_mesh :: proc(file_name : string) -> (mesh : IndexedMesh, err: bool = fa
                 x, y, z : f32
                 ok : bool
                 x, ok = strconv.parse_f32(parts[1])
-                assert(ok, "Failed reading vertex")
+                // assert(ok, "Failed reading vertex")
                 y, ok = strconv.parse_f32(parts[2])
-                assert(ok, "Failed reading vertex")
+                // assert(ok, "Failed reading vertex")
                 z, ok = strconv.parse_f32(parts[3])
-                assert(ok, "Failed reading vertex")
+                // assert(ok, "Failed reading vertex")
                 mesh.vertex_data[vertex_count].position = {x, y, z}
 
                 vertex_count += 1

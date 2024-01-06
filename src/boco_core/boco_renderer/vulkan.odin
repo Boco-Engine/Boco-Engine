@@ -60,10 +60,15 @@ RendererInternals :: struct {
     swapchain_images: []vk.Image,
     swapchain_imageviews: []vk.ImageView,
 
+    depth_images: []vk.Image,
+    depth_memory: []vk.DeviceMemory,
+    depth_imageviews: []vk.ImageView,
+
     // Options
     enabled_features: RendererFeatures,
     queue_family_indices: [QueueFamilyType]u32,
     swapchain_settings: SwapchainSettings,
+    sample_count: vk.SampleCountFlags,
 
     // For Rendering
     command_pool: vk.CommandPool,
@@ -84,15 +89,17 @@ RendererInternals :: struct {
 // TODO: Add Vulkan debug callback for more detailed messages.
 // TODO: Allow changing GPU in use.
 init_vulkan :: proc(using renderer: ^Renderer) -> (ok: bool = false) 
-{
+{  
     log.info("Creating Vulkan resources")
     vk.load_proc_addresses(cast(rawptr)vkGetInstanceProcAddr)
+
+    sample_count = {._1}
 
     // TODO: Should query window for needed layers!
     layers := [dynamic]cstring{}
 
     instance_extensions := [dynamic]cstring{
-        vk.KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME,
+        // vk.KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME,
         "VK_KHR_win32_surface",
         vk.KHR_SURFACE_EXTENSION_NAME,
     }
@@ -128,6 +135,8 @@ init_vulkan :: proc(using renderer: ^Renderer) -> (ok: bool = false)
     init_device(renderer, layers[:], device_extensions[:]) or_return
 
     init_swapchain(renderer)
+
+    init_depth_resources(renderer)
 
     init_render_pass(renderer)
 
@@ -286,9 +295,9 @@ init_device :: proc(using renderer: ^Renderer, layers, extensions: []cstring) ->
     device_info.queueCreateInfoCount = len(queue_create_infos)
     device_info.pQueueCreateInfos = &(queue_create_infos[QueueFamilyType(0)])
     device_info.enabledLayerCount = auto_cast len(layers)
-    device_info.ppEnabledLayerNames = &layers[0]
+    device_info.ppEnabledLayerNames = &layers[0] if len(layers) > 0 else nil
     device_info.enabledExtensionCount = auto_cast len(extensions)
-    device_info.ppEnabledExtensionNames = &extensions[0]
+    device_info.ppEnabledExtensionNames = &extensions[0] if len(extensions) > 0 else nil
     device_info.pEnabledFeatures = &features
 
     verify_device_extension_support(physical_device, layers[:], extensions[:]) or_return
@@ -350,7 +359,7 @@ retrieve_swapchain_images :: proc(using renderer: ^Renderer) {
 
 init_render_pass :: proc(using renderer: ^Renderer) -> bool {
     // TODO: Add Depth, Multisample, ...
-    attachment_descriptions: [1]vk.AttachmentDescription
+    attachment_descriptions: [2]vk.AttachmentDescription
 
     // Output Attachment
     attachment_descriptions[0].format = swapchain_settings.surface_format.format
@@ -358,7 +367,17 @@ init_render_pass :: proc(using renderer: ^Renderer) -> bool {
     attachment_descriptions[0].storeOp = .STORE
     attachment_descriptions[0].initialLayout = .UNDEFINED
     attachment_descriptions[0].finalLayout = .PRESENT_SRC_KHR
-    attachment_descriptions[0].samples = { ._1 }
+    attachment_descriptions[0].samples = sample_count
+
+    // TODO: Store information in renderer so that we can change anytime
+    attachment_descriptions[1].format = .D24_UNORM_S8_UINT
+    attachment_descriptions[1].loadOp = .CLEAR
+    attachment_descriptions[1].storeOp = .STORE
+    attachment_descriptions[1].stencilLoadOp = .DONT_CARE
+    attachment_descriptions[1].stencilStoreOp = .DONT_CARE
+    attachment_descriptions[1].initialLayout = .UNDEFINED
+    attachment_descriptions[1].finalLayout = .DEPTH_STENCIL_ATTACHMENT_OPTIMAL
+    attachment_descriptions[1].samples = sample_count
 
     // Dependencies
     dependencies: [1]vk.SubpassDependency
@@ -370,18 +389,21 @@ init_render_pass :: proc(using renderer: ^Renderer) -> bool {
     dependencies[0].dstSubpass = 0
 
     // References
-    references: [1]vk.AttachmentReference
+    references: [2]vk.AttachmentReference
 
     // Output Ref
     references[0].attachment = 0
     references[0].layout = .COLOR_ATTACHMENT_OPTIMAL
+
+    references[1].attachment = 1
+    references[1].layout = .DEPTH_STENCIL_ATTACHMENT_OPTIMAL
 
     subpass_descriptions: [1]vk.SubpassDescription
     subpass_descriptions[0].colorAttachmentCount = 1
     subpass_descriptions[0].pColorAttachments = &references[0]
     subpass_descriptions[0].inputAttachmentCount = 0
     subpass_descriptions[0].pInputAttachments = nil
-    subpass_descriptions[0].pDepthStencilAttachment = nil
+    subpass_descriptions[0].pDepthStencilAttachment = &references[1]
     subpass_descriptions[0].pPreserveAttachments = nil
     subpass_descriptions[0].pResolveAttachments = nil
     subpass_descriptions[0].pipelineBindPoint = .GRAPHICS
@@ -391,8 +413,8 @@ init_render_pass :: proc(using renderer: ^Renderer) -> bool {
     render_pass_info.sType = .RENDER_PASS_CREATE_INFO
     render_pass_info.attachmentCount = len(attachment_descriptions)
     render_pass_info.pAttachments = &attachment_descriptions[0]
-    // render_pass_info.dependencyCount = len(dependencies)
-    // render_pass_info.pDependencies = &dependencies[0]
+    render_pass_info.dependencyCount = len(dependencies)
+    render_pass_info.pDependencies = &dependencies[0]
     render_pass_info.subpassCount = len(subpass_descriptions)
     render_pass_info.pSubpasses = &subpass_descriptions[0]
 
@@ -408,7 +430,8 @@ create_framebuffers :: proc(using renderer: ^Renderer) -> bool {
     for &imageview, index in swapchain_imageviews {
         // TODO: Add Attachments for depth, multiview, ...
         attachments := [?]vk.ImageView{
-            imageview
+            imageview,
+            depth_imageviews[index],
         }
 
         // FRAMEBUFFER
@@ -470,4 +493,42 @@ create_semaphores_and_fences :: proc(using renderer: ^Renderer) {
 		fence_info.flags = {.SIGNALED}
 		vk.CreateFence(logical_device, &fence_info, nil, &in_flight[i])
 	}
+}
+
+init_depth_resources :: proc(using renderer: ^Renderer) {
+    depth_images = make([]vk.Image, swapchain_settings.image_count)
+    depth_memory = make([]vk.DeviceMemory, swapchain_settings.image_count)
+    depth_imageviews = make([]vk.ImageView, swapchain_settings.image_count)
+
+    for i in 0..<swapchain_settings.image_count {
+        ret : vk.Result
+        depth_images[i], ret = create_image(renderer,
+            .D24_UNORM_S8_UINT,
+            {main_window.width, main_window.height, 1},
+            sample_count,
+            {.DEPTH_STENCIL_ATTACHMENT},
+        )
+
+        requirements: vk.MemoryRequirements
+        vk.GetImageMemoryRequirements(logical_device, depth_images[i], &requirements)
+
+        memory_info : vk.MemoryAllocateInfo
+        memory_info.sType = .MEMORY_ALLOCATE_INFO
+        memory_info.memoryTypeIndex = get_memory_from_properties(renderer, {.HOST_VISIBLE, .HOST_COHERENT})
+        memory_info.allocationSize = requirements.size
+
+        vk.AllocateMemory(logical_device, &memory_info, nil, &depth_memory[i])
+        
+        vk.BindImageMemory(logical_device, 
+            depth_images[i],
+            depth_memory[i],
+            0
+         )
+
+        depth_imageviews[i] = create_imageview(renderer,
+            depth_images[i],
+            .D24_UNORM_S8_UINT,
+            {vk.ImageAspectFlag.DEPTH, vk.ImageAspectFlag.STENCIL},
+        )
+    }
 }

@@ -4,6 +4,30 @@ import "core:log"
 import vk "vendor:vulkan"
 import "core:mem"
 
+create_image :: proc(using renderer: ^Renderer, 
+                    format: vk.Format, 
+                    extent: vk.Extent3D,
+                    samples: vk.SampleCountFlags,
+                    usage: vk.ImageUsageFlags
+                ) -> (image: vk.Image, result: vk.Result)
+                {
+    info : vk.ImageCreateInfo
+    info.sType = .IMAGE_CREATE_INFO
+    info.flags = {}
+    info.imageType = .D2
+    info.format = format
+    info.extent = extent
+    info.mipLevels = 1
+    info.arrayLayers = 1
+    info.samples = samples
+    info.tiling = .OPTIMAL
+    info.usage = usage
+    info.sharingMode = .EXCLUSIVE
+    info.initialLayout = .UNDEFINED
+    ret := vk.CreateImage(logical_device, &info, nil, &image)
+    return image, ret 
+}
+
 create_imageview :: proc(using renderer: ^Renderer, image: vk.Image, format: vk.Format, aspect_mask: vk.ImageAspectFlags) -> (image_view: vk.ImageView){
     info : vk.ImageViewCreateInfo
     info.sType = .IMAGE_VIEW_CREATE_INFO
