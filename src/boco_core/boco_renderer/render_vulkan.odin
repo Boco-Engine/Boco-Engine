@@ -46,9 +46,9 @@ record_to_command_buffer :: proc(using renderer: ^Renderer) {
 			mvp := mesh.push_constant.mvp
 
 			mvp *= Mat4{
-				math.cos_f32(0.1), -math.sin_f32(0.1), 0, 0,
-				math.sin_f32(0.1), math.cos_f32(0.1), 0, 0,
-				0, 0, 1, 0,
+				math.cos_f32(0.001), 0, -math.sin_f32(0.001), 0,
+				0, 1, 0, 0,
+				math.sin_f32(0.001), 0, math.cos_f32(0.001), 0,
 				0, 0, 0, 1,
 			}
 

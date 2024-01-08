@@ -19,7 +19,7 @@ Window :: struct {
 
 init_window :: proc(using window: ^Window) -> (ok: bool = true) {
     log.info("Initialising Window")
-    main_window = sdl.CreateWindow("Test", 200, 200, 600, 600, {.VULKAN, .RESIZABLE})
+    main_window = sdl.CreateWindow("Test", 200, 200, 1200, 1200, {.VULKAN, .RESIZABLE})
 
     w, h : i32
     sdl.GetWindowSize(main_window, &w, &h)

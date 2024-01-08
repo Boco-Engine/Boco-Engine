@@ -511,10 +511,10 @@ init_depth_resources :: proc(using renderer: ^Renderer) {
 
         requirements: vk.MemoryRequirements
         vk.GetImageMemoryRequirements(logical_device, depth_images[i], &requirements)
-
+        
         memory_info : vk.MemoryAllocateInfo
         memory_info.sType = .MEMORY_ALLOCATE_INFO
-        memory_info.memoryTypeIndex = get_memory_from_properties(renderer, {.HOST_VISIBLE, .HOST_COHERENT})
+        memory_info.memoryTypeIndex = get_memory_from_properties(renderer, {.DEVICE_LOCAL})
         memory_info.allocationSize = requirements.size
 
         vk.AllocateMemory(logical_device, &memory_info, nil, &depth_memory[i])
