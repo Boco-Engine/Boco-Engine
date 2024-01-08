@@ -42,7 +42,7 @@ init_renderer :: proc(using renderer: ^Renderer) -> (ok: bool = true) {
 
     camera = make_camera(
         fov = 70, 
-        aspect_ratio = cast(f32)main_window.width / cast(f32)main_window.height
+        aspect_ratio = cast(f32)main_window.width / cast(f32)main_window.height,
     )
 
     if !ok {

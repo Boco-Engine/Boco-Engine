@@ -46,6 +46,7 @@ init_engine :: proc(using engine: ^Engine) -> (ok: bool = false) {
     }
 
     boco_window.init(&window) or_return
+    renderer.main_window = &window
     boco_renderer.init_renderer(&renderer) or_return
 
     // TODO: Need a game loop, where we can init, update, and cleanup game resources.
@@ -79,14 +80,10 @@ init_engine :: proc(using engine: ^Engine) -> (ok: bool = false) {
 run :: proc(using engine: ^Engine) {
     log.info("Running Engine main loop")
     for running {
-<<<<<<< HEAD
-        running &= boco_window.update_window(&window)
+        running &= boco_window.update(&window)
         running &= boco_renderer.update(&renderer)
         boco_renderer.record_to_command_buffer(&renderer)
         boco_renderer.submit_render(&renderer)
-=======
-        running &= boco_window.update(&window)
->>>>>>> 5af8b469fc89da52fdfac90a88a3a31c71ff7a52
     }
 }
 
