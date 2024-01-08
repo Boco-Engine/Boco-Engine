@@ -19,52 +19,68 @@ record_to_command_buffer :: proc(using renderer: ^Renderer) {
 	vk.ResetCommandBuffer(cmd_buffer, {})
 	vk.BeginCommandBuffer(cmd_buffer, &begin_info)
 	{
-		// These can be constants
-        clear_values : [2]vk.ClearValue
-        clear_values[0].color.float32 = [4]f32{0.1, 0.1, 0.1, 1}
-		clear_values[1].depthStencil.depth = 1.0
+		for scene in scenes {
+			view_area := scene.view_area
 
-		render_pass_begin_info: vk.RenderPassBeginInfo
-		render_pass_begin_info.sType = .RENDER_PASS_BEGIN_INFO
-		render_pass_begin_info.renderPass = render_pass
-		render_pass_begin_info.framebuffer = framebuffers[image_index]
-		render_pass_begin_info.renderArea = scissor // NOTE: Dont actually need to keep scissor struct in renderer struct, can just use the window viewarea.
-		render_pass_begin_info.clearValueCount = len(clear_values)
-		render_pass_begin_info.pClearValues = &clear_values[0]
-
-		vk.CmdBeginRenderPass(cmd_buffer, &render_pass_begin_info, .INLINE)
-
-		vk.CmdSetScissor(cmd_buffer, 0, 1, &scissor)
-		vk.CmdSetViewport(cmd_buffer, 0, 1, &viewport)
-
-		vk.CmdBindPipeline(cmd_buffer, .GRAPHICS, graphics_pipeline)
-
-		for mesh in indexed_meshes {
-			offsets := [?]vk.DeviceSize{0}
-
-			// TODO: Need camera for projection and view matrices.
-			mvp := mesh.push_constant.mvp
-
-			mvp *= Mat4{
-				math.cos_f32(0.001), 0, -math.sin_f32(0.001), 0,
-				0, 1, 0, 0,
-				math.sin_f32(0.001), 0, math.cos_f32(0.001), 0,
-				0, 0, 0, 1,
+			s := vk.Rect2D {
+				vk.Offset2D {
+					x = cast(i32)view_area.x,
+					y = cast(i32)view_area.y,
+				},
+				vk.Extent2D {
+					width = cast(u32)view_area.width,
+					height = cast(u32)view_area.height,
+				},
 			}
-
-			mesh.push_constant.mvp = mvp
-
-			mvp *= camera.viewMatrix
-			mvp *= camera.projectionMatrix
-
-			vk.CmdPushConstants(cmd_buffer, pipeline_layout, {.VERTEX}, 0, size_of(mvp), &mvp)
-			vk.CmdBindVertexBuffers(cmd_buffer, 0, 1, &mesh.vertex_buffer_resource.buffer, &offsets[0])
-			vk.CmdBindIndexBuffer(cmd_buffer, mesh.index_buffer_resource.buffer, 0, .UINT32)
-
-			vk.CmdDrawIndexed(cmd_buffer, cast(u32)len(mesh.index_data), 1, 0, 0, 0)
+	
+			v := vk.Viewport {
+				x =        view_area.x,
+				y =        view_area.y,
+				width =    view_area.width,
+				height =   view_area.height,
+				minDepth = viewport.minDepth,
+				maxDepth = viewport.maxDepth,
+			}
+	
+			// These can be constants
+			clear_values : [2]vk.ClearValue
+			clear_values[0].color.float32 = scene.clear_value
+			clear_values[1].depthStencil.depth = 1.0
+	
+			render_pass_begin_info: vk.RenderPassBeginInfo
+			render_pass_begin_info.sType = .RENDER_PASS_BEGIN_INFO
+			render_pass_begin_info.renderPass = render_pass
+			render_pass_begin_info.framebuffer = framebuffers[image_index]
+			render_pass_begin_info.renderArea = s // NOTE: Dont actually need to keep scissor struct in renderer struct, can just use the window viewarea.
+			render_pass_begin_info.clearValueCount = len(clear_values)
+			render_pass_begin_info.pClearValues = &clear_values[0]
+	
+			vk.CmdBeginRenderPass(cmd_buffer, &render_pass_begin_info, .INLINE)
+	
+			vk.CmdSetScissor(cmd_buffer, 0, 1, &s)
+			vk.CmdSetViewport(cmd_buffer, 0, 1, &v)
+	
+			vk.CmdBindPipeline(cmd_buffer, .GRAPHICS, graphics_pipeline)
+	
+			for mesh in scene.static_meshes {
+	
+				offsets := [?]vk.DeviceSize{0}
+	
+				// TODO: Need camera for projection and view matrices.
+				mvp := mesh.push_constant.mvp
+	
+				mvp *= scene.camera.viewMatrix
+				mvp *= scene.camera.projectionMatrix
+	
+				vk.CmdPushConstants(cmd_buffer, pipeline_layout, {.VERTEX}, 0, size_of(mvp), &mvp)
+				vk.CmdBindVertexBuffers(cmd_buffer, 0, 1, &mesh.vertex_buffer_resource.buffer, &offsets[0])
+				vk.CmdBindIndexBuffer(cmd_buffer, mesh.index_buffer_resource.buffer, 0, .UINT32)
+	
+				vk.CmdDrawIndexed(cmd_buffer, cast(u32)len(mesh.index_data), 1, 0, 0, 0)
+			}
+	
+			vk.CmdEndRenderPass(cmd_buffer)
 		}
-
-		vk.CmdEndRenderPass(cmd_buffer)
 	}
 	vk.EndCommandBuffer(cmd_buffer)
 
@@ -92,7 +108,7 @@ record_to_command_buffer :: proc(using renderer: ^Renderer) {
 	present_info.pImageIndices = &image_index
 
 	if vk.QueuePresentKHR(queues[.GRAPHICS], &present_info) != .SUCCESS {
-		// TODO: Check if need resize and resize.
+		on_resize(renderer)
 	}
 
 	current_frame_index += 1
@@ -101,6 +117,5 @@ record_to_command_buffer :: proc(using renderer: ^Renderer) {
 
 submit_render :: proc(using rendeer: ^Renderer) {
 
-    // current_render_index += 1
-    // current_render_index %= swapchain_settings.image_count
+
 }

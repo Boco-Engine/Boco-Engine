@@ -15,6 +15,14 @@ Window :: struct {
     child_windows: [dynamic]Window
 }
 
+update_size :: proc(using window: ^Window) {
+    w, h : i32
+    sdl.GetWindowSize(view_window, &w, &h)
+    width = cast(u32)w
+    height = cast(u32)h
+    log.error("WIDTH: ", width, " HEIGHT: ", height)
+}
+
 create_window_surface :: proc(using window: ^Window, instance: vk.Instance, surface: ^vk.SurfaceKHR) -> bool {
     return auto_cast sdl.Vulkan_CreateSurface(view_window, instance, surface)
 }
@@ -37,6 +45,14 @@ update :: proc(using window: ^Window) -> (ok: bool = true) {
         #partial switch event.type {
         case .QUIT:
             return false
+        case .WINDOWEVENT:
+            #partial switch event.window.event {
+                case .RESIZED:
+                    w, h : i32
+                    sdl.GetWindowSize(view_window, &w, &h)
+                    width = cast(u32)w
+                    height = cast(u32)h
+            }
         }
     }
     update_child_windows(window)
