@@ -44,7 +44,7 @@ main :: proc() {
 
     engine : Engine
 
-    if !init(&engine) {
+    if !init_engine(&engine) {
         log.error("Failed initialising engine")
         return 
     }

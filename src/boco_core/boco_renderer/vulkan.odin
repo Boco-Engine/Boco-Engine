@@ -248,7 +248,9 @@ init_instance :: proc(using renderer: ^Renderer, layers, extensions: []cstring) 
 }
 
 init_surface :: proc(using renderer: ^Renderer) -> bool {
-    return boco_window.create_window_surface(main_window, renderer.instance, &surface)
+    log.info("Creating Surface")
+    boco_window.create_window_surface(main_window, renderer.instance, &surface)
+    return true
 }
 
 init_debug_messenger :: proc(using renderer: ^Renderer) -> (ok: bool = false) {
@@ -261,6 +263,7 @@ init_debug_messenger :: proc(using renderer: ^Renderer) -> (ok: bool = false) {
 }
 
 init_device :: proc(using renderer: ^Renderer, layers, extensions: []cstring) -> (ok: bool = false) {
+    log.info("Creating Device")
     query_family_queues(renderer)
     
     priorities: [1]f32 = {1.0}

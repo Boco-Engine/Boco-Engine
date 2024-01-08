@@ -7,7 +7,7 @@ import sdl "vendor:sdl2"
 import vk "vendor:vulkan"
 
 Window :: struct {
-    main_window: ^sdl.Window,
+    view_window: ^sdl.Window,
     // Some shit
     width: u32,
     height: u32,
@@ -16,7 +16,7 @@ Window :: struct {
 }
 
 create_window_surface :: proc(using window: ^Window, instance: vk.Instance, surface: ^vk.SurfaceKHR) -> bool {
-    return auto_cast sdl.Vulkan_CreateSurface(main_window, instance, surface)
+    return auto_cast sdl.Vulkan_CreateSurface(view_window, instance, surface)
 }
 
 init :: proc(using window: ^Window) -> (ok: bool = true) {
@@ -24,7 +24,7 @@ init :: proc(using window: ^Window) -> (ok: bool = true) {
     view_window = sdl.CreateWindow("BOCO", sdl.WINDOWPOS_UNDEFINED, sdl.WINDOWPOS_UNDEFINED, 500, 500, {.VULKAN, .RESIZABLE})
     
     w, h : i32
-    sdl.GetWindowSize(main_window, &w, &h)
+    sdl.GetWindowSize(view_window, &w, &h)
     width = cast(u32)w
     height = cast(u32)h
 
@@ -33,12 +33,10 @@ init :: proc(using window: ^Window) -> (ok: bool = true) {
 
 update :: proc(using window: ^Window) -> (ok: bool = true) {
     event: sdl.Event
-    if event.window.windowID == sdl.GetWindowID(window.view_window){
-        for sdl.PollEvent(&event) {
-            #partial switch event.type {
-            case .QUIT:
-                return false
-            }
+    for sdl.PollEvent(&event) {
+        #partial switch event.type {
+        case .QUIT:
+            return false
         }
     }
     update_child_windows(window)
