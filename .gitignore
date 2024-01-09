@@ -2,4 +2,9 @@ build/
 *.exe
 ols.json
 temp/
-.vscode/
+*.pdb
+
+# Meshes
+*.obj
+*.fbx
+*.bocom

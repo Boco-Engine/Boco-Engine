@@ -4,6 +4,7 @@ GRAPHICS_API :: #config(GRAPHICS_API, "vulkan")
 
 import "core:log"
 import sdl "vendor:sdl2"
+import vk "vendor:vulkan"
 
 Window :: struct {
     name: cstring,
@@ -23,7 +24,18 @@ init :: proc(using window: ^Window, title: cstring = "BOCO") -> (ok: bool = true
     view_window = sdl.CreateWindow(name, sdl.WINDOWPOS_UNDEFINED, sdl.WINDOWPOS_UNDEFINED, 500, 500, {.VULKAN, .RESIZABLE})
     window_id = sdl.GetWindowID(view_window)
     log.info("WindowID", window_id)
+    
+    // Added size query -> Need to update on resize
+    w, h : i32
+    sdl.GetWindowSize(view_window, &w, &h)
+    width = cast(u32)w
+    height = cast(u32)h
+    
     return
+}
+
+create_window_surface :: proc(using window: ^Window, instance: vk.Instance, surface: ^vk.SurfaceKHR) -> bool {
+    return auto_cast sdl.Vulkan_CreateSurface(view_window, instance, surface)
 }
 
 update :: proc(using window: ^Window) -> (should_close: bool = true){
