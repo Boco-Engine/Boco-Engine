@@ -18,6 +18,14 @@ Window :: struct {
     is_ready_to_close: bool
 }
 
+update_size :: proc(using window: ^Window) {
+    w, h : i32
+    sdl.GetWindowSize(view_window, &w, &h)
+    width = cast(u32)w
+    height = cast(u32)h
+    log.error("WIDTH: ", width, " HEIGHT: ", height)
+}
+
 init :: proc(using window: ^Window, title: cstring = "BOCO") -> (ok: bool = true) {
     name = title
     log.info("Initialising Window:", name)
@@ -93,6 +101,10 @@ handle_window_event_or_delegate :: proc(using window: ^Window){
                         window_event.state = Window_state.Move
                     case .RESIZED:
                         window_event.state = Window_state.Resize
+                        w, h : i32
+                        sdl.GetWindowSize(view_window, &w, &h)
+                        width = cast(u32)w
+                        height = cast(u32)h
                     case .SIZE_CHANGED:
                         window_event.state = Window_state.Resize
                     case .MINIMIZED:
