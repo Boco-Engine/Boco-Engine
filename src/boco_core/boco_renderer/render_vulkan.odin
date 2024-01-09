@@ -7,14 +7,19 @@ import "core:math"
 record_to_command_buffer :: proc(using renderer: ^Renderer) {
     cmd_buffer := command_buffers[current_frame_index]
 
+	fence_err := vk.WaitForFences(logical_device, 1, &in_flight[current_frame_index], true, 20000000)
+	if fence_err != .SUCCESS do return
 
 	image_index: u32
-	err := vk.AcquireNextImageKHR(logical_device, swapchain, 0, image_available[current_frame_index], 0, &image_index)
+	err := vk.AcquireNextImageKHR(logical_device, swapchain, 100000000, image_available[current_frame_index], 0, &image_index)
+	if err == .SUBOPTIMAL_KHR {
+		on_resize(renderer)
+		return
+	}
 	if err != .SUCCESS{
 		return
 	}
-
-	if vk.WaitForFences(logical_device, 1, &in_flight[current_frame_index], true, 0) != .SUCCESS do return
+	
 	vk.ResetFences(logical_device, 1, &in_flight[current_frame_index])
 
 	begin_info: vk.CommandBufferBeginInfo
@@ -70,7 +75,6 @@ record_to_command_buffer :: proc(using renderer: ^Renderer) {
 	
 				offsets := [?]vk.DeviceSize{0}
 	
-				// TODO: Need camera for projection and view matrices.
 				mvp := mesh.push_constant.mvp
 	
 				mvp *= scene.camera.viewMatrix
@@ -111,8 +115,11 @@ record_to_command_buffer :: proc(using renderer: ^Renderer) {
 	present_info.pSwapchains = &swapchain
 	present_info.pImageIndices = &image_index
 
-	if vk.QueuePresentKHR(queues[.GRAPHICS], &present_info) != .SUCCESS {
+	present_err := vk.QueuePresentKHR(queues[.GRAPHICS], &present_info)
+	if present_err != .SUCCESS {
 		on_resize(renderer)
+		current_frame_index = 0
+		return
 	}
 
 	current_frame_index += 1

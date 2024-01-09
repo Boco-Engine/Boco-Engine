@@ -125,7 +125,7 @@ read_bocom_mesh :: proc(file_name: string) -> (mesh: IndexedMesh, err: bool = fa
         mesh.vertex_data[mesh.index_data[i * 3 + 1]].normal = normal
         mesh.vertex_data[mesh.index_data[i * 3 + 2]].normal = normal
 
-        dist := (glsl.length_vec3(auto_cast mesh.vertex_data[mesh.index_data[i * 3]].position) - 2950.0) / 100.0
+        dist := (glsl.length_vec3(auto_cast mesh.vertex_data[mesh.index_data[i * 3]].position) - 980.0) / 100.0
 
         mesh.vertex_data[mesh.index_data[i * 3]].normal = auto_cast glsl.vec3{dist, dist, dist}
         mesh.vertex_data[mesh.index_data[i * 3 + 1]].normal = auto_cast glsl.vec3{dist, dist, dist}

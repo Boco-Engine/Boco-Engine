@@ -236,6 +236,9 @@ init_vulkan :: proc(using renderer: ^Renderer) -> (ok: bool = false)
 
     create_command_buffers(renderer)
 
+    image_available =   make([]vk.Semaphore,    swapchain_settings.image_count)
+    render_finished =   make([]vk.Semaphore,    swapchain_settings.image_count)
+    in_flight       =   make([]vk.Fence,        swapchain_settings.image_count)
     create_semaphores_and_fences(renderer)
 
     return true
@@ -251,6 +254,10 @@ on_resize :: proc(using renderer: ^Renderer) {
 
         vk.DestroyImageView(logical_device, swapchain_imageviews[i], nil)
         vk.DestroyFramebuffer(logical_device, framebuffers[i], nil)
+
+        vk.DestroyFence(logical_device, in_flight[i], nil)
+        vk.DestroySemaphore(logical_device, render_finished[i], nil)
+        vk.DestroySemaphore(logical_device, image_available[i], nil)
     }
 
     boco_window.update_size(main_window);
@@ -261,6 +268,8 @@ on_resize :: proc(using renderer: ^Renderer) {
     retrieve_swapchain_images(renderer)
     init_depth_resources(renderer)
     create_framebuffers(renderer)
+
+    create_semaphores_and_fences(renderer)
 }
 
 cleanup_vulkan :: proc(using renderer: ^Renderer) {
@@ -578,10 +587,6 @@ create_command_buffers :: proc(using renderer: ^Renderer) -> bool {
 }
 
 create_semaphores_and_fences :: proc(using renderer: ^Renderer) {
-    image_available =   make([]vk.Semaphore,    swapchain_settings.image_count)
-    render_finished =   make([]vk.Semaphore,    swapchain_settings.image_count)
-    in_flight       =   make([]vk.Fence,        swapchain_settings.image_count)
-
 	for i in 0..<swapchain_settings.image_count {
 		semaphore_info: vk.SemaphoreCreateInfo
 		semaphore_info.sType = .SEMAPHORE_CREATE_INFO
