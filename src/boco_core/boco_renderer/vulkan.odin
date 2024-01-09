@@ -201,8 +201,19 @@ init_vulkan :: proc(using renderer: ^Renderer) -> (ok: bool = false)
 
     init_device(renderer, layers[:], device_extensions[:]) or_return
 
+    swapchain_settings = get_swapchain_settings(renderer)
     init_swapchain(renderer)
 
+    vk.GetSwapchainImagesKHR(logical_device, swapchain, &swapchain_settings.image_count, nil)
+    swapchain_images = make([]vk.Image, swapchain_settings.image_count)
+    vk.GetSwapchainImagesKHR(logical_device, swapchain, &swapchain_settings.image_count, &swapchain_images[0])
+
+    swapchain_imageviews = make([]vk.ImageView, swapchain_settings.image_count)
+    retrieve_swapchain_images(renderer)
+
+    depth_images = make([]vk.Image, swapchain_settings.image_count)
+    depth_memory = make([]vk.DeviceMemory, swapchain_settings.image_count)
+    depth_imageviews = make([]vk.ImageView, swapchain_settings.image_count)
     init_depth_resources(renderer)
 
     init_render_pass(renderer)
@@ -218,6 +229,7 @@ init_vulkan :: proc(using renderer: ^Renderer) -> (ok: bool = false)
     
     create_graphics_pipeline(renderer)
 
+    framebuffers = make([]vk.Framebuffer, swapchain_settings.image_count)
     create_framebuffers(renderer)
 
     create_command_pool(renderer)
@@ -227,6 +239,28 @@ init_vulkan :: proc(using renderer: ^Renderer) -> (ok: bool = false)
     create_semaphores_and_fences(renderer)
 
     return true
+}
+
+on_resize :: proc(using renderer: ^Renderer) {
+    vk.DeviceWaitIdle(logical_device)
+
+    for i in 0..<swapchain_settings.image_count {
+        vk.FreeMemory(logical_device, depth_memory[i], nil)
+        vk.DestroyImageView(logical_device, depth_imageviews[i], nil)
+        vk.DestroyImage(logical_device, depth_images[i], nil)
+
+        vk.DestroyImageView(logical_device, swapchain_imageviews[i], nil)
+        vk.DestroyFramebuffer(logical_device, framebuffers[i], nil)
+    }
+
+    boco_window.update_size(main_window);
+
+    init_swapchain(renderer)
+    vk.GetSwapchainImagesKHR(logical_device, swapchain, &swapchain_settings.image_count, &swapchain_images[0])
+
+    retrieve_swapchain_images(renderer)
+    init_depth_resources(renderer)
+    create_framebuffers(renderer)
 }
 
 cleanup_vulkan :: proc(using renderer: ^Renderer) {
@@ -385,10 +419,15 @@ init_device :: proc(using renderer: ^Renderer, layers, extensions: []cstring) ->
 }
 
 init_swapchain :: proc(using renderer: ^Renderer) -> (ok: bool = false) {
-    swapchain_settings = get_swapchain_settings(renderer)
+    caps : vk.SurfaceCapabilitiesKHR
+    vk.GetPhysicalDeviceSurfaceCapabilitiesKHR(physical_device, surface, &caps)
 
-    extent : vk.Extent2D = {main_window.width, main_window.height}
+    extent : vk.Extent2D = caps.currentExtent
+    log.error(extent)
 
+    temp := old_swapchain
+    old_swapchain = swapchain
+    
     info : vk.SwapchainCreateInfoKHR
     info.sType = .SWAPCHAIN_CREATE_INFO_KHR
     info.surface = surface
@@ -405,23 +444,17 @@ init_swapchain :: proc(using renderer: ^Renderer) -> (ok: bool = false) {
     info.clipped = true
     info.oldSwapchain = old_swapchain
 
-    old_swapchain = swapchain
     
-    (vk.CreateSwapchainKHR(logical_device, &info, nil, &swapchain) == .SUCCESS) or_return
+    log.error(vk.CreateSwapchainKHR(logical_device, &info, nil, &swapchain))
     log.info("Created Swapchain")
-
-    retrieve_swapchain_images(renderer)
+    
+    // vk.DestroySwapchainKHR(logical_device, temp, nil)
 
     return true
 }
 
 retrieve_swapchain_images :: proc(using renderer: ^Renderer) {
     // Overwrites what we set as image count to actual used, as vulkan might use different amount.
-    vk.GetSwapchainImagesKHR(logical_device, swapchain, &swapchain_settings.image_count, nil)
-    swapchain_images = make([]vk.Image, swapchain_settings.image_count)
-    log.debug(vk.GetSwapchainImagesKHR(logical_device, swapchain, &swapchain_settings.image_count, &swapchain_images[0]))
-
-    swapchain_imageviews = make([]vk.ImageView, swapchain_settings.image_count)
     for image, index in swapchain_images {
         swapchain_imageviews[index] = create_imageview(renderer, swapchain_images[index], swapchain_settings.surface_format.format, {.COLOR})
     }
@@ -495,8 +528,6 @@ init_render_pass :: proc(using renderer: ^Renderer) -> bool {
 }
 
 create_framebuffers :: proc(using renderer: ^Renderer) -> bool {
-    framebuffers = make([]vk.Framebuffer, swapchain_settings.image_count)
-
     for &imageview, index in swapchain_imageviews {
         // TODO: Add Attachments for depth, multiview, ...
         attachments := [?]vk.ImageView{
@@ -566,10 +597,6 @@ create_semaphores_and_fences :: proc(using renderer: ^Renderer) {
 }
 
 init_depth_resources :: proc(using renderer: ^Renderer) {
-    depth_images = make([]vk.Image, swapchain_settings.image_count)
-    depth_memory = make([]vk.DeviceMemory, swapchain_settings.image_count)
-    depth_imageviews = make([]vk.ImageView, swapchain_settings.image_count)
-
     for i in 0..<swapchain_settings.image_count {
         ret : vk.Result
         depth_images[i], ret = create_image(renderer,
@@ -592,7 +619,7 @@ init_depth_resources :: proc(using renderer: ^Renderer) {
         vk.BindImageMemory(logical_device, 
             depth_images[i],
             depth_memory[i],
-            0
+            0,
          )
 
         depth_imageviews[i] = create_imageview(renderer,

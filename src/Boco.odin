@@ -16,7 +16,7 @@ create_logger :: proc() -> (log.Logger) {
         .Line,
         .Time,
         .Procedure,
-        .Thread_Id
+        .Thread_Id,
     }
 
     LOGGER_OPTIONS :: log.Options{
@@ -25,7 +25,7 @@ create_logger :: proc() -> (log.Logger) {
         .Line,
         .Time,
         .Procedure,
-        .Thread_Id
+        .Thread_Id,
     }
 
     when ODIN_DEBUG {
