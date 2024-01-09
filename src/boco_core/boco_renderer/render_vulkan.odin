@@ -7,11 +7,15 @@ import "core:math"
 record_to_command_buffer :: proc(using renderer: ^Renderer) {
     cmd_buffer := command_buffers[current_frame_index]
 
-	if vk.WaitForFences(logical_device, 1, &in_flight[current_frame_index], true, 0) != .SUCCESS do return
-	vk.ResetFences(logical_device, 1, &in_flight[current_frame_index])
 
 	image_index: u32
-	if vk.AcquireNextImageKHR(logical_device, swapchain, 0, image_available[current_frame_index], 0, &image_index) != .SUCCESS do return 
+	err := vk.AcquireNextImageKHR(logical_device, swapchain, 0, image_available[current_frame_index], 0, &image_index)
+	if err != .SUCCESS{
+		return
+	}
+
+	if vk.WaitForFences(logical_device, 1, &in_flight[current_frame_index], true, 0) != .SUCCESS do return
+	vk.ResetFences(logical_device, 1, &in_flight[current_frame_index])
 
 	begin_info: vk.CommandBufferBeginInfo
 	begin_info.sType = .COMMAND_BUFFER_BEGIN_INFO

@@ -2,6 +2,19 @@ package benchmarks
 
 import "core:time"
 
+BenchmarkInfo :: struct {
+    total: time.Duration,
+}
+
+@(deferred_in_out=_SCOPED_BENCHMARK_END)
+SCOPED_BENCHMARK :: proc(info: ^BenchmarkInfo) -> time.Tick {
+    return time.tick_now()
+}
+
+_SCOPED_BENCHMARK_END :: proc(info: ^BenchmarkInfo, tick: time.Tick) {
+    info.total = time.tick_since(tick)
+}
+
 BenchmarkSettings :: struct {
     setup: #type proc(settings: ^BenchmarkSettings) -> bool,
     benched_proc: #type proc(settings: ^BenchmarkSettings) -> bool,

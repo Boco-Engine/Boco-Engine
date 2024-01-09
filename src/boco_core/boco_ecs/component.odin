@@ -1,26 +1,35 @@
 package boco_ecs
 
-MAX_COMPONENTS :: 32
-ComponentType :: distinct u32
+import "core:log"
+import "core:runtime"
 
-// NOTE: Has a cap of 32 components right now
-ComponentSignature :: bit_set[0..<MAX_COMPONENTS]
-
-Components :: struct {
-    components: [MAX_COMPONENTS]ComponentType,
+// Can extract id into some map from component name to u32 map[string]u32 -> get_component_id(Transform) Lots or repeated data otherwise
+Component :: struct {
+    id: u32,
+    entity: Entity,
 }
+
+// A way to quickly check which components a entity has or what components a system needs.
+ComponentSignature :: bit_set[0..<32]
 
 // Default Components
 
 Vec3 :: [3]f32
 
 Transform :: struct {
+    using component: Component,
+
     position: Vec3,
-     // TODO: Transfer to quaternions at some point
     rotation: Vec3,
     scale: Vec3,
 }
 
-PhysicsObject :: struct {
-    mass: f32,
+Mass :: struct {
+    using component: Component,
+    value: f32,
+}
+
+Fluff :: struct {
+    using component: Component,
+    value: [10000]u32,
 }
