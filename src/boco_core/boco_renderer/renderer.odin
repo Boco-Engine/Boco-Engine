@@ -56,5 +56,21 @@ version :: proc() -> string {
 }
 
 cleanup_renderer :: proc(using renderer: ^Renderer) {
+    wait_on_api(renderer)
+    cleanup_scenes(renderer)
     cleanup_graphics_api(renderer)
+}
+
+cleanup_scenes :: proc(using renderer: ^Renderer) -> bool {
+    for scene in &scenes {
+        for mesh in scene.meshes {
+            destroy_mesh(renderer, mesh)
+        }
+        delete(scene.meshes)
+        for mesh in scene.static_meshes {
+            destroy_mesh(renderer, mesh)
+        }
+        delete(scene.static_meshes)
+    }
+    return true
 }

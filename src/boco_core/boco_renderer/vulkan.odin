@@ -89,76 +89,12 @@ RendererInternals :: struct {
     debug_messenger: vk.DebugUtilsMessengerEXT,
 }
 
-Test :: struct {
-    id: u32,
-    transform: boco_ecs.Transform,
-    mass: boco_ecs.Mass,
-    fluff: [10000]u32
-}
-
-Test2s :: struct {
-    id: u32,
-    transform: boco_ecs.Transform,
-    fluff: [100]u32
-}
-
 // TODO: Add Vulkan debug callback for more detailed messages.
 // TODO: Allow changing GPU in use.
 init_vulkan :: proc(using renderer: ^Renderer) -> (ok: bool = false) 
 {  
     log.info("Creating Vulkan resources")
     vk.load_proc_addresses(cast(rawptr)vkGetInstanceProcAddr)
-
-    // TODO: Make a add_component proc for doing this.
-    ecs: boco_ecs.ECS(25000)
-    boco_ecs.init(&ecs, 30)
-    
-    boco_ecs.register_component(&ecs, boco_ecs.Transform)
-    boco_ecs.register_component(&ecs, boco_ecs.Mass)
-    boco_ecs.register_component(&ecs, boco_ecs.Fluff)
-
-    boco_ecs.add_component_to_entity(&ecs, boco_ecs.Transform, 0)
-
-    // NOTE: All testing showing normal is faster
-    // Make better test for realistic environment.
-    bench_info: benchmarks.BenchmarkInfo
-    {
-        benchmarks.SCOPED_BENCHMARK(&bench_info)
-
-        for i in 0..<10 {
-            for j in 0..<25_000 {
-                boco_ecs.get_component(&ecs, boco_ecs.Transform, cast(boco_ecs.Entity)j).position = {1.0, 2.0, 3.0}
-                boco_ecs.get_component(&ecs, boco_ecs.Fluff, cast(boco_ecs.Entity)j).value[99] = 300.0
-            }
-            for j in 0..<25_000 {
-                boco_ecs.get_component(&ecs, boco_ecs.Mass, cast(boco_ecs.Entity)j).value = 300.0
-            }
-            for j in 0..<25_000 {
-                boco_ecs.get_component(&ecs, boco_ecs.Fluff, cast(boco_ecs.Entity)j).value[0] = 300.0
-            }
-        }
-    }
-    log.error("ECS:     ", bench_info.total)
-
-    tests := make([]Test, 25_000)
-    tests2s := make([]Test2s, 25_000)
-    {
-        benchmarks.SCOPED_BENCHMARK(&bench_info)
-
-        for i in 0..<10 {
-            for j in 0..<25_000 {
-                tests2s[j].transform.position = {1.0, 2.0, 3.0}
-                tests2s[j].fluff[99] = 300.0
-            }
-            for j in 0..<25_000 {
-                tests[j].mass.value = 300.0
-            }
-            for j in 0..<25_000 {
-                tests2s[j].fluff[0] = 300.0
-            }
-        }
-    }
-    log.error("Normal:  ", bench_info.total)
 
     sample_count = {._1}
 
@@ -274,6 +210,12 @@ on_resize :: proc(using renderer: ^Renderer) {
 
 cleanup_vulkan :: proc(using renderer: ^Renderer) {
     log.info("Cleaning Vulkan resources")
+
+    for i in 0..<swapchain_settings.image_count {
+        vk.FreeMemory(logical_device, depth_memory[i], nil)
+        vk.DestroyImageView(logical_device, depth_imageviews[i], nil)
+        vk.DestroyImage(logical_device, depth_images[i], nil)
+    }
 
     vk.DeviceWaitIdle(logical_device)
 
