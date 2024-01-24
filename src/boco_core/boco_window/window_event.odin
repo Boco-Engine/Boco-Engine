@@ -288,10 +288,18 @@ key_name_from_code :: [?]Key_name{
     Key_name.App2
 }
 
+mouse_button_from_code :: [?]Mouse_button{
+    Mouse_button.Left,
+    Mouse_button.Middle,
+    Mouse_button.Right,
+    Mouse_button.X1,
+    Mouse_button.X2,
+}
+
 Window_event :: struct{
     window: ^Window,
     state: Window_state,
-    key_event: Key_event,
+    input_event: Input_event,
     propagate_to_parent: bool,
     event_handled: bool,
 }
@@ -308,6 +316,36 @@ Window_state :: enum{
     Enter,
     Leave,
     Key,
+    Mouse,
+}
+
+Input_event :: struct{
+    key_event: Key_event,
+    mouse_event: Mouse_event,
+}
+
+Mouse_event :: struct{
+    state: Mouse_state,
+    button: Mouse_button,
+    x: i32,
+    y: i32,
+    wheel_x: i32,
+    wheel_y: i32,
+}
+
+Mouse_state :: enum{
+    Pressed,
+    Released,
+    Moved,
+    Wheel,
+}
+
+Mouse_button :: enum{
+    Left,
+    Middle,
+    Right,
+    X1,
+    X2,
 }
 
 Key_event :: struct{
