@@ -52,6 +52,7 @@ RendererInternals :: struct {
     render_pass: vk.RenderPass,
     framebuffers: []vk.Framebuffer,
     descriptor_pool: vk.DescriptorPool,
+    ui_descriptor_pool: vk.DescriptorPool,
     pipeline_layout: vk.PipelineLayout,
     graphics_pipeline: vk.Pipeline,
     // NOTE: Only 1 queue of each type, might want to expand this later.
@@ -236,6 +237,7 @@ cleanup_vulkan :: proc(using renderer: ^Renderer) {
     delete(framebuffers)
     vk.DestroyPipeline(logical_device, graphics_pipeline, nil)
     vk.DestroyPipelineLayout(logical_device, pipeline_layout, nil)
+    vk.DestroyDescriptorPool(logical_device, ui_descriptor_pool, nil)
     vk.DestroyDescriptorPool(logical_device, descriptor_pool, nil)
     vk.DestroyRenderPass(logical_device, render_pass, nil)
     for &imageview in swapchain_imageviews {

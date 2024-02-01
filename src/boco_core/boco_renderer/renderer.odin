@@ -5,6 +5,7 @@ GRAPHICS_API :: #config(GRAPHICS_API, "vulkan")
 import "core:log"
 import "core:time"
 import "../boco_window"
+import "vendor:microui"
 
 // Not sure I like this, but makes swapping out Graphics APIs pretty easy if we decide to add XBOX/PS Support
 // Would be better to just import the file and have these already defined, but cant put import in a when.
@@ -33,11 +34,19 @@ Renderer :: struct {
 
     scenes: [dynamic]Scene,
     current_scene_id: u32,
+
+    ui_context: microui.Context,
+}
+
+init_ui :: proc(using renderer: ^Renderer) {
+    microui.init(&ui_context)
+    ui_context.text_width = proc(font: microui.Font, str: string) -> i32 { return auto_cast (10 * len(str)) }
+    ui_context.text_height = proc(font: microui.Font) -> i32 { return 10 }
 }
 
 init :: proc(using renderer: ^Renderer) -> (ok: bool = true) {
     ok = init_graphics_api(renderer)
-
+    
     if !ok {
         log.error("Failed to initialise Vulkan")
         return

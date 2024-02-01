@@ -9,6 +9,7 @@ import "core:time"
 import "benchmarks"
 import sdl "vendor:sdl2"
 import "core:math"
+import "vendor:microui"
 
 Engine :: struct {
     running : bool,
@@ -39,6 +40,46 @@ init_mesh :: proc(renderer: ^boco_renderer.Renderer, file: string) -> ^boco_rend
     return mesh
 }
 
+test_scene :: proc(renderer: ^boco_renderer.Renderer) {
+    renderer.scenes = make([dynamic]boco_renderer.Scene, 1)
+
+    renderer.scenes[0].name = "Main Scene"
+    renderer.scenes[0].window = renderer.main_window^
+    
+    renderer.scenes[0].view_area = boco_window.ViewArea {
+        x = 0,
+        y = 0,
+        width = cast(f32)renderer.scenes[0].window.width,
+        height = cast(f32)renderer.scenes[0].window.height,
+    }
+
+    renderer.scenes[0].camera = boco_renderer.make_camera(100, cast(f32)renderer.scenes[0].view_area.width / cast(f32)renderer.scenes[0].view_area.height)
+
+    renderer.scenes[0].clear_value = {0.1, 0.2, 0.1, 1.0}
+    
+    renderer.scenes[0].static_meshes = make([]^boco_renderer.IndexedMesh, 20)
+    renderer.scenes[0].static_meshes[0] = init_mesh(renderer, "planet/lod0-chunk-0.bocom")
+    renderer.scenes[0].static_meshes[1] = init_mesh(renderer, "planet/lod0-chunk-1.bocom")
+    renderer.scenes[0].static_meshes[2] = init_mesh(renderer, "planet/lod0-chunk-2.bocom")
+    renderer.scenes[0].static_meshes[3] = init_mesh(renderer, "planet/lod0-chunk-3.bocom")
+    renderer.scenes[0].static_meshes[4] = init_mesh(renderer, "planet/lod0-chunk-4.bocom")
+    renderer.scenes[0].static_meshes[5] = init_mesh(renderer, "planet/lod0-chunk-5.bocom")
+    renderer.scenes[0].static_meshes[6] = init_mesh(renderer, "planet/lod0-chunk-6.bocom")
+    renderer.scenes[0].static_meshes[7] = init_mesh(renderer, "planet/lod0-chunk-7.bocom")
+    renderer.scenes[0].static_meshes[8] = init_mesh(renderer, "planet/lod0-chunk-8.bocom")
+    renderer.scenes[0].static_meshes[9] = init_mesh(renderer, "planet/lod0-chunk-9.bocom")
+    renderer.scenes[0].static_meshes[10] = init_mesh(renderer, "planet/lod0-chunk-10.bocom")
+    renderer.scenes[0].static_meshes[11] = init_mesh(renderer, "planet/lod0-chunk-11.bocom")
+    renderer.scenes[0].static_meshes[12] = init_mesh(renderer, "planet/lod0-chunk-12.bocom")
+    renderer.scenes[0].static_meshes[13] = init_mesh(renderer, "planet/lod0-chunk-13.bocom")
+    renderer.scenes[0].static_meshes[14] = init_mesh(renderer, "planet/lod0-chunk-14.bocom")
+    renderer.scenes[0].static_meshes[15] = init_mesh(renderer, "planet/lod0-chunk-15.bocom")
+    renderer.scenes[0].static_meshes[16] = init_mesh(renderer, "planet/lod0-chunk-16.bocom")
+    renderer.scenes[0].static_meshes[17] = init_mesh(renderer, "planet/lod0-chunk-17.bocom")
+    renderer.scenes[0].static_meshes[18] = init_mesh(renderer, "planet/lod0-chunk-18.bocom")
+    renderer.scenes[0].static_meshes[19] = init_mesh(renderer, "planet/lod0-chunk-19.bocom")
+}
+
 init_engine :: proc(using engine: ^Engine) -> (ok: bool = false) {
     log.info("Started Boco Engine")
 
@@ -51,45 +92,9 @@ init_engine :: proc(using engine: ^Engine) -> (ok: bool = false) {
     renderer.main_window = &window
     boco_renderer.init(&renderer) or_return
 
-    renderer.scenes = make([dynamic]boco_renderer.Scene, 1)
-
-    renderer.scenes[0].name = "Main Scene"
-    renderer.scenes[0].window = window
-    
-    renderer.scenes[0].view_area = boco_window.ViewArea {
-        x = 0,
-        y = 0,
-        width = cast(f32)window.width,
-        height = cast(f32)window.height,
-    }
-
-    renderer.scenes[0].camera = boco_renderer.make_camera(100, cast(f32)renderer.scenes[0].view_area.width / cast(f32)renderer.scenes[0].view_area.height)
-
-    renderer.scenes[0].clear_value = {0.1, 0.2, 0.1, 1.0}
-
     // TODO: Need a game loop, where we can init, update, and cleanup game resources.
-    // LOAD MESH
-    renderer.scenes[0].static_meshes = make([]^boco_renderer.IndexedMesh, 20)
-    renderer.scenes[0].static_meshes[0] = init_mesh(&renderer, "planet/lod0-chunk-0.bocom")
-    renderer.scenes[0].static_meshes[1] = init_mesh(&renderer, "planet/lod0-chunk-1.bocom")
-    renderer.scenes[0].static_meshes[2] = init_mesh(&renderer, "planet/lod0-chunk-2.bocom")
-    renderer.scenes[0].static_meshes[3] = init_mesh(&renderer, "planet/lod0-chunk-3.bocom")
-    renderer.scenes[0].static_meshes[4] = init_mesh(&renderer, "planet/lod0-chunk-4.bocom")
-    renderer.scenes[0].static_meshes[5] = init_mesh(&renderer, "planet/lod0-chunk-5.bocom")
-    renderer.scenes[0].static_meshes[6] = init_mesh(&renderer, "planet/lod0-chunk-6.bocom")
-    renderer.scenes[0].static_meshes[7] = init_mesh(&renderer, "planet/lod0-chunk-7.bocom")
-    renderer.scenes[0].static_meshes[8] = init_mesh(&renderer, "planet/lod0-chunk-8.bocom")
-    renderer.scenes[0].static_meshes[9] = init_mesh(&renderer, "planet/lod0-chunk-9.bocom")
-    renderer.scenes[0].static_meshes[10] = init_mesh(&renderer, "planet/lod0-chunk-10.bocom")
-    renderer.scenes[0].static_meshes[11] = init_mesh(&renderer, "planet/lod0-chunk-11.bocom")
-    renderer.scenes[0].static_meshes[12] = init_mesh(&renderer, "planet/lod0-chunk-12.bocom")
-    renderer.scenes[0].static_meshes[13] = init_mesh(&renderer, "planet/lod0-chunk-13.bocom")
-    renderer.scenes[0].static_meshes[14] = init_mesh(&renderer, "planet/lod0-chunk-14.bocom")
-    renderer.scenes[0].static_meshes[15] = init_mesh(&renderer, "planet/lod0-chunk-15.bocom")
-    renderer.scenes[0].static_meshes[16] = init_mesh(&renderer, "planet/lod0-chunk-16.bocom")
-    renderer.scenes[0].static_meshes[17] = init_mesh(&renderer, "planet/lod0-chunk-17.bocom")
-    renderer.scenes[0].static_meshes[18] = init_mesh(&renderer, "planet/lod0-chunk-18.bocom")
-    renderer.scenes[0].static_meshes[19] = init_mesh(&renderer, "planet/lod0-chunk-19.bocom")
+    test_scene(&renderer)
+    boco_renderer.init_ui(&renderer)
 
     running = true
     return true
@@ -104,12 +109,45 @@ run :: proc(using engine: ^Engine) {
         boco_renderer.record_to_command_buffer(&renderer)
         boco_renderer.submit_render(&renderer)
 
+        // Render Some UI
+        microui.begin(&renderer.ui_context)
+
+        if microui.window(&renderer.ui_context, "Test", {10, 10, 400, 400}) {
+            // microui.button(&renderer.ui_context, "Button")
+
+            // microui.end_window(&renderer.ui_context)
+        }
+
+        microui.end(&renderer.ui_context)
+
+        cmd: ^microui.Command
+        for (microui.next_command(&renderer.ui_context, &cmd)) {
+            switch _ in cmd.variant {
+                case ^microui.Command_Text:
+                    // TODO: Add text rendering
+                    
+                case ^microui.Command_Rect:
+                    // TODO: Add rext rendering
+                    
+                case ^microui.Command_Icon:
+                    // TODO: Add icon rendering
+                    
+                case ^microui.Command_Clip:
+                    // TODO: Add clipping
+                    
+                case ^microui.Command_Jump:
+                    // TODO: Find out what this is
+                    
+            }
+        }
+
+        // Rotate planet
         for mesh in &renderer.scenes[0].static_meshes {
             mesh.push_constant.mvp *= matrix[4, 4]f32 {
                 math.cos_f32(0.001), 0, -math.sin_f32(0.001), 0,
                 0, 1, 0, 0,
                 math.sin_f32(0.001), 0, math.cos_f32(0.001), 0,
-                0, 0, 0, 1
+                0, 0, 0, 1,
             }
         }
     }
