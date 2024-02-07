@@ -70,13 +70,16 @@ UpdatePhysics :: proc(using engine: ^Engine) -> (ok: bool = true) {
     return
 }
 
-Render :: proc(using engine: ^Engine) -> (ok: bool = true) {
-    ok &= boco_renderer.update(&renderer)
-    // TODO: Currenly just renders all scenes, i think we want render to be called per scene!
-    boco_renderer.render_scene(&renderer, scenes[0], {0, 0, cast(f32)window.width, cast(f32)window.height})
-    boco_renderer.submit_render(&renderer)
+RenderScene :: proc(using engine: ^Engine, scene: boco_renderer.Scene(5000), view_area: boco_window.ViewArea) -> (ok: bool = true) {
+    boco_renderer.render_scene(&renderer, scene, view_area)
     return
 } 
+
+RenderFrame :: proc(using engine: ^Engine) -> (ok: bool = true) {
+    ok &= boco_renderer.update(&renderer)
+    boco_renderer.submit_render(&renderer)
+    return
+}
 
 // This is no longer needed move to using Individual procedures above in own loop.
 @(deprecated="No longer used. Use the individual render, update, and input procedures to call from the games loop.")

@@ -13,15 +13,12 @@ setup_test :: proc(engine: ^boco.Engine) {
 }
 
 run_test :: proc(engine: ^boco.Engine) {
-    context.logger = boco.create_logger()
-    defer log.destroy_console_logger(context.logger)
-
     running := true
 
     for running {
         running &= boco.HandleInputs(engine)
         running &= boco.UpdatePhysics(engine)
-        running &= boco.Render(engine)
+        running &= boco.RenderScene(engine, engine.scenes[0], {0, 0, cast(f32)engine.window.width, cast(f32)engine.window.height})
     }
 }
 

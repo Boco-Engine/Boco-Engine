@@ -9,3 +9,4 @@ temp/
 *.obj
 *.fbx
 *.bocom
+local_tests/

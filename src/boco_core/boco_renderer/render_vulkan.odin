@@ -8,11 +8,11 @@ import "../boco_window"
 render_scene :: proc(using renderer: ^Renderer, scene: Scene(5000), view_area: boco_window.ViewArea) {
     cmd_buffer := command_buffers[current_frame_index]
 
-	fence_err := vk.WaitForFences(logical_device, 1, &in_flight[current_frame_index], true, 20000000)
+	fence_err := vk.WaitForFences(logical_device, 1, &in_flight[current_frame_index], true, ~u64(0))
 	if fence_err != .SUCCESS do return
 
 	image_index: u32
-	err := vk.AcquireNextImageKHR(logical_device, swapchain, 100000000, image_available[current_frame_index], 0, &image_index)
+	err := vk.AcquireNextImageKHR(logical_device, swapchain, ~u64(0), image_available[current_frame_index], 0, &image_index)
 	if err == .SUBOPTIMAL_KHR {
 		on_resize(renderer)
 		return
@@ -29,8 +29,6 @@ render_scene :: proc(using renderer: ^Renderer, scene: Scene(5000), view_area: b
 	vk.ResetCommandBuffer(cmd_buffer, {})
 	vk.BeginCommandBuffer(cmd_buffer, &begin_info)
 	{
-		// view_area := view_area
-
 		s := vk.Rect2D {
 			vk.Offset2D {
 				x = cast(i32)view_area.x,
@@ -71,7 +69,7 @@ render_scene :: proc(using renderer: ^Renderer, scene: Scene(5000), view_area: b
 
 		vk.CmdBindPipeline(cmd_buffer, .GRAPHICS, graphics_pipeline)
 
-		// NOTE: Move to ECS rendering not this.
+		// TODO: Move to ECS rendering not this.
 		// for mesh in scene.static_meshes {
 
 		// 	offsets := [?]vk.DeviceSize{0}

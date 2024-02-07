@@ -14,28 +14,30 @@ Components :: struct($T: typeid) {
 ECS :: struct($max_entities : u32) {
     entities: EntityManager(max_entities),
     components: map[typeid]rawptr, // pointer to the array of the components // As we have map id now, we can just store in an array.
-    systems: []System(max_entities),
+    systems: [dynamic]System,
 
     component_to_id_map: map[typeid]u32,
     component_count: u32,
 }
 
-init :: proc(ecs: ^ECS($N), num_components: u32) {
-    ecs.components = make(map[typeid]rawptr, num_components)
+init :: proc(ecs: ^ECS($N)) {
+    // TODO: -> Were hardcoding the max number of components which is just 32 for how many bits in a 32bit id.
+    ecs.components = make(map[typeid]rawptr, 32)
     init_entity_manager(&ecs.entities)
 }
 
 // Currenly preallocating all systems with enough space to hold all entities, maybe for something like this
 // A dynamic array will be enough, as this will not run every frame. but maybe this way is better for systems as
 // Then theyre also contiguous in memory
-System :: struct($max_entities: u32) {
+System :: struct {
     id: u32,
     requirements: ComponentSignature, // Of component ids
 
-    entities: [max_entities]Entity,
+    // NOTE: Can make this dynamic, should only be added to at start up so not too much a performance impact.
+    entities: [dynamic]Entity,
     entity_count: u32,
 
-    actions: proc(^ECS(max_entities)),
+    actions: proc(^any, ^System),
 }
 
 get_component :: proc(ecs: ^ECS($N), $T: typeid, entity: Entity) -> ^T {
@@ -85,6 +87,6 @@ register_component :: proc(ecs: ^ECS($N), $T: typeid) {
 
     component := new(Components(T))
     component.members = make([]T, ecs.entities.MAX_ENTITIES)
-    log.debug(len(component.members))
+    log.info("Registered:", type_info_of(T), "\b, ID:", ecs.component_to_id_map[T])
     ecs.components[T] = cast(rawptr)component
 }
