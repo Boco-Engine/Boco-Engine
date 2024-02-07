@@ -72,6 +72,9 @@ UpdatePhysics :: proc(using engine: ^Engine) -> (ok: bool = true) {
 
 RenderScene :: proc(using engine: ^Engine, scene: boco_renderer.Scene(5000), view_area: boco_window.ViewArea) -> (ok: bool = true) {
     boco_renderer.render_scene(&renderer, scene, view_area)
+
+    // RenderMeshAction(engine, scene.ecs, )
+
     return
 } 
 

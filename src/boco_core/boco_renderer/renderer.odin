@@ -35,6 +35,8 @@ Renderer :: struct {
     current_scene_id: u32,
 
     ui_context: microui.Context,
+
+    mesh_map: map[MeshID]IndexedMesh,
 }
 
 init_ui :: proc(using renderer: ^Renderer) {
@@ -55,6 +57,7 @@ init :: proc(using renderer: ^Renderer) -> (ok: bool = true) {
 }
 
 update :: proc(using renderer: ^Renderer) -> bool {
+    // TODO: update camera manually
     // update_camera(&scenes[current_scene_id].camera, 0);
     return true
 }

@@ -14,7 +14,8 @@ Components :: struct($T: typeid) {
 ECS :: struct($max_entities : u32) {
     entities: EntityManager(max_entities),
     components: map[typeid]rawptr, // pointer to the array of the components // As we have map id now, we can just store in an array.
-    systems: [dynamic]System,
+    systems: [dynamic]^System,
+    system_count: u32,
 
     component_to_id_map: map[typeid]u32,
     component_count: u32,
@@ -26,18 +27,24 @@ init :: proc(ecs: ^ECS($N)) {
     init_entity_manager(&ecs.entities)
 }
 
+update :: proc(engine: ^any, ecs: ^ECS($N)) {
+    for system in ecs.systems {
+        if sytem.update_every_frame do system.action(engine, ecs, system)
+    }
+}
+
 // Currenly preallocating all systems with enough space to hold all entities, maybe for something like this
 // A dynamic array will be enough, as this will not run every frame. but maybe this way is better for systems as
 // Then theyre also contiguous in memory
 System :: struct {
+    name: string,
     id: u32,
-    requirements: ComponentSignature, // Of component ids
+    requirements: ComponentSignature,
 
-    // NOTE: Can make this dynamic, should only be added to at start up so not too much a performance impact.
     entities: [dynamic]Entity,
-    entity_count: u32,
+    action: proc(data: rawptr, ecs: ^ECS(5000), system: ^System),
 
-    actions: proc(^any, ^System),
+    update_every_frame: bool,
 }
 
 get_component :: proc(ecs: ^ECS($N), $T: typeid, entity: Entity) -> ^T {
@@ -48,16 +55,12 @@ get_component :: proc(ecs: ^ECS($N), $T: typeid, entity: Entity) -> ^T {
 // Just resets values back to 0
 add_component_to_entity :: proc(ecs: ^ECS($N), $T: typeid, entity: Entity) {
     component := get_component(ecs, T, entity)
-    temp := component.component
     component^ = T{}
-    component.component = temp
-    component.entity = entity
     ecs.entities.component_signatures[entity] += {auto_cast ecs.component_to_id_map[T]}
 
     for system in &ecs.systems {
         if (ecs.entities.component_signatures[entity] & system.requirements) == system.requirements {
-            system.entities[system.entity_count] = entity
-            system.entity_count += 1
+            append(&system.entities, entity)
         }
     }
 }
@@ -89,4 +92,13 @@ register_component :: proc(ecs: ^ECS($N), $T: typeid) {
     component.members = make([]T, ecs.entities.MAX_ENTITIES)
     log.info("Registered:", type_info_of(T), "\b, ID:", ecs.component_to_id_map[T])
     ecs.components[T] = cast(rawptr)component
+}
+
+register_system :: proc(ecs: ^ECS($N), system: ^System) {
+    system.id = ecs.system_count
+    ecs.system_count += 1
+
+    append(&ecs.systems, system);
+
+    log.info("Registered:", system.name, "\b, ID:", system.id)
 }
