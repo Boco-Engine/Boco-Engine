@@ -30,7 +30,7 @@ init :: proc(ecs: ^ECS($N), num_components: u32) {
 // Then theyre also contiguous in memory
 System :: struct($max_entities: u32) {
     id: u32,
-    requirements: bit_set[0..<32], // Of component ids
+    requirements: ComponentSignature, // Of component ids
 
     entities: [max_entities]Entity,
     entity_count: u32,

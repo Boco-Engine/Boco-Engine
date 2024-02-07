@@ -13,6 +13,7 @@ Component :: struct {
 ComponentSignature :: bit_set[0..<32]
 
 // Default Components
+// TODO: Move this out of here.
 
 Vec3 :: [3]f32
 

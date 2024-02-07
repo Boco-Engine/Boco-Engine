@@ -4,7 +4,7 @@ import vk "vendor:vulkan"
 import "core:log"
 import "core:math"
 
-record_to_command_buffer :: proc(using renderer: ^Renderer) {
+render_scene :: proc(using renderer: ^Renderer, scene: Scene(5000)) {
     cmd_buffer := command_buffers[current_frame_index]
 
 	fence_err := vk.WaitForFences(logical_device, 1, &in_flight[current_frame_index], true, 20000000)

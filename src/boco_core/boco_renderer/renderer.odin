@@ -32,7 +32,6 @@ Renderer :: struct {
 
     needs_recreation : bool,
 
-    scenes: [dynamic]Scene,
     current_scene_id: u32,
 
     ui_context: microui.Context,
@@ -56,7 +55,7 @@ init :: proc(using renderer: ^Renderer) -> (ok: bool = true) {
 }
 
 update :: proc(using renderer: ^Renderer) -> bool {
-    update_camera(&scenes[current_scene_id].camera, 0);
+    // update_camera(&scenes[current_scene_id].camera, 0);
     return true
 }
 
@@ -71,15 +70,15 @@ cleanup_renderer :: proc(using renderer: ^Renderer) {
 }
 
 cleanup_scenes :: proc(using renderer: ^Renderer) -> bool {
-    for scene in &scenes {
-        for mesh in scene.meshes {
-            destroy_mesh(renderer, mesh)
-        }
-        delete(scene.meshes)
-        for mesh in scene.static_meshes {
-            destroy_mesh(renderer, mesh)
-        }
-        delete(scene.static_meshes)
-    }
+    // for scene in &scenes {
+    //     for mesh in scene.meshes {
+    //         destroy_mesh(renderer, mesh)
+    //     }
+    //     delete(scene.meshes)
+    //     for mesh in scene.static_meshes {
+    //         destroy_mesh(renderer, mesh)
+    //     }
+    //     delete(scene.static_meshes)
+    // }
     return true
 }

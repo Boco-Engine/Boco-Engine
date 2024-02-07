@@ -15,7 +15,8 @@ make_file_path :: proc(folder : string, file : string) -> (path : string) {
 }
 
 read_spirv :: proc(file_name : string) -> (code : []u8, err : bool = true) {
-    path : string = make_file_path("Shaders/compiled", file_name)
+    // TODO: More robust way to get the folder path.
+    path : string = make_file_path("../Boco-Engine/Shaders/compiled", file_name)
 
     file_contents, ok := os.read_entire_file(path, context.allocator)
 
@@ -43,7 +44,8 @@ read_mesh :: proc(file_name : string) -> (mesh : IndexedMesh, err: bool = false)
 
 read_bocom_mesh :: proc(file_name: string) -> (mesh: IndexedMesh, err: bool = false) {
     log.info("Reading BOCOM: ", file_name)
-    file_path := make_file_path("Assets/Meshes", file_name)
+    // TODO: More Robust way to find files
+    file_path := make_file_path("../Boco-Engine/Assets/Meshes", file_name)
 
     file_contents, ok := os.read_entire_file(file_path, context.allocator)
     assert(ok, "Failed to read BOCOM file")
