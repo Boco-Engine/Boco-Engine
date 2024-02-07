@@ -289,8 +289,7 @@ init_instance :: proc(using renderer: ^Renderer, layers, extensions: []cstring) 
 
     res := vk.CreateInstance(&instance_info, nil, &instance)
     if res != .SUCCESS {
-        log.error("Failed initialising Vulkan Instance")
-        log.error(res)
+        log.error("Failed initialising Vulkan Instance: ", res)
         return false
     }
 
@@ -376,7 +375,6 @@ init_swapchain :: proc(using renderer: ^Renderer) -> (ok: bool = false) {
     vk.GetPhysicalDeviceSurfaceCapabilitiesKHR(physical_device, surface, &caps)
 
     extent : vk.Extent2D = caps.currentExtent
-    log.error(extent)
 
     temp := old_swapchain
     old_swapchain = swapchain
@@ -398,7 +396,11 @@ init_swapchain :: proc(using renderer: ^Renderer) -> (ok: bool = false) {
     info.oldSwapchain = old_swapchain
 
     
-    log.error(vk.CreateSwapchainKHR(logical_device, &info, nil, &swapchain))
+    res := vk.CreateSwapchainKHR(logical_device, &info, nil, &swapchain)
+    if res != .SUCCESS {
+        log.error("Failed creating swapchain: ", res);
+        return false
+    }
     log.info("Created Swapchain")
     
     // vk.DestroySwapchainKHR(logical_device, temp, nil)
