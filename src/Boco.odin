@@ -44,12 +44,12 @@ main :: proc() {
 
     engine : Engine
 
-    if !init_engine(&engine) {
+    if !init(&engine) {
         log.error("Failed initialising engine")
         return 
     }
 
     run(&engine)
 
-    cleanup(&engine)
+    shutdown(&engine)
 }

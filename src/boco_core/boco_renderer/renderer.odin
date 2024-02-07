@@ -5,6 +5,7 @@ GRAPHICS_API :: #config(GRAPHICS_API, "vulkan")
 import "core:log"
 import "core:time"
 import "../boco_window"
+import "vendor:microui"
 
 // Not sure I like this, but makes swapping out Graphics APIs pretty easy if we decide to add XBOX/PS Support
 // Would be better to just import the file and have these already defined, but cant put import in a when.
@@ -31,13 +32,20 @@ Renderer :: struct {
 
     needs_recreation : bool,
 
-    scenes: [dynamic]Scene,
     current_scene_id: u32,
+
+    ui_context: microui.Context,
+}
+
+init_ui :: proc(using renderer: ^Renderer) {
+    microui.init(&ui_context)
+    ui_context.text_width = proc(font: microui.Font, str: string) -> i32 { return auto_cast (10 * len(str)) }
+    ui_context.text_height = proc(font: microui.Font) -> i32 { return 10 }
 }
 
 init :: proc(using renderer: ^Renderer) -> (ok: bool = true) {
     ok = init_graphics_api(renderer)
-
+    
     if !ok {
         log.error("Failed to initialise Vulkan")
         return
@@ -47,7 +55,7 @@ init :: proc(using renderer: ^Renderer) -> (ok: bool = true) {
 }
 
 update :: proc(using renderer: ^Renderer) -> bool {
-    update_camera(&scenes[current_scene_id].camera, 0);
+    // update_camera(&scenes[current_scene_id].camera, 0);
     return true
 }
 
@@ -56,5 +64,21 @@ version :: proc() -> string {
 }
 
 cleanup_renderer :: proc(using renderer: ^Renderer) {
+    wait_on_api(renderer)
+    cleanup_scenes(renderer)
     cleanup_graphics_api(renderer)
+}
+
+cleanup_scenes :: proc(using renderer: ^Renderer) -> bool {
+    // for scene in &scenes {
+    //     for mesh in scene.meshes {
+    //         destroy_mesh(renderer, mesh)
+    //     }
+    //     delete(scene.meshes)
+    //     for mesh in scene.static_meshes {
+    //         destroy_mesh(renderer, mesh)
+    //     }
+    //     delete(scene.static_meshes)
+    // }
+    return true
 }

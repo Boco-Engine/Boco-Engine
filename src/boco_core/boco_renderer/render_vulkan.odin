@@ -4,7 +4,7 @@ import vk "vendor:vulkan"
 import "core:log"
 import "core:math"
 
-record_to_command_buffer :: proc(using renderer: ^Renderer) {
+render_scene :: proc(using renderer: ^Renderer, scene: Scene(5000)) {
     cmd_buffer := command_buffers[current_frame_index]
 
 	fence_err := vk.WaitForFences(logical_device, 1, &in_flight[current_frame_index], true, 20000000)
@@ -127,7 +127,21 @@ record_to_command_buffer :: proc(using renderer: ^Renderer) {
 	current_frame_index %= swapchain_settings.image_count
 }
 
-submit_render :: proc(using rendeer: ^Renderer) {
+submit_render :: proc(using renderer: ^Renderer) {
 
 
+}
+
+destroy_mesh :: proc(using renderer: ^Renderer, mesh: ^IndexedMesh) {
+	vk.FreeMemory(logical_device, mesh.index_buffer_resource.memory, nil)
+	vk.DestroyBuffer(logical_device, mesh.index_buffer_resource.buffer, nil)
+	delete(mesh.index_data)
+	
+	vk.FreeMemory(logical_device, mesh.vertex_buffer_resource.memory, nil)
+	vk.DestroyBuffer(logical_device, mesh.vertex_buffer_resource.buffer, nil)
+	delete(mesh.vertex_data)
+}
+
+wait_on_api :: proc(using renderer: ^Renderer) {
+	vk.DeviceWaitIdle(logical_device)
 }

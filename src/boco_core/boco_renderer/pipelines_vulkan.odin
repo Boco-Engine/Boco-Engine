@@ -19,6 +19,30 @@ create_pipeline_layout :: proc(using renderer : ^Renderer) -> bool {
 
     vk.CreateDescriptorPool(logical_device, &descriptor_pool_info, nil, &descriptor_pool)
 
+    // TODO: There are excessive and arbitrarily set, need to figure out reasonable values
+    ui_pool_sizes:= [?]vk.DescriptorPoolSize{
+        {vk.DescriptorType.SAMPLER, 100},
+        {.COMBINED_IMAGE_SAMPLER, 100},
+        {.SAMPLED_IMAGE, 100},
+		{.STORAGE_IMAGE, 100},
+		{.UNIFORM_TEXEL_BUFFER, 100},
+		{.STORAGE_TEXEL_BUFFER, 100},
+		{.UNIFORM_BUFFER, 100},
+		{.STORAGE_BUFFER, 100},
+		{.UNIFORM_BUFFER_DYNAMIC, 100},
+		{.STORAGE_BUFFER_DYNAMIC, 100},
+		{.INPUT_ATTACHMENT, 100},
+    }
+
+    ui_descriptor_pool_info: vk.DescriptorPoolCreateInfo
+    ui_descriptor_pool_info.sType = .DESCRIPTOR_POOL_CREATE_INFO
+    ui_descriptor_pool_info.poolSizeCount = len(ui_pool_sizes)
+    ui_descriptor_pool_info.pPoolSizes = &ui_pool_sizes[0]
+    ui_descriptor_pool_info.maxSets = 100
+    ui_descriptor_pool_info.flags = {.FREE_DESCRIPTOR_SET}
+
+    vk.CreateDescriptorPool(logical_device, &ui_descriptor_pool_info, nil, &ui_descriptor_pool)
+
     push_constant_ranges: [1]vk.PushConstantRange
     push_constant_ranges[0].stageFlags = {.VERTEX}
     push_constant_ranges[0].size = size_of(PushConstant)
