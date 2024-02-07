@@ -75,12 +75,13 @@ record_to_command_buffer :: proc(using renderer: ^Renderer) {
 	
 				offsets := [?]vk.DeviceSize{0}
 	
-				mvp := mesh.push_constant.mvp
+				mvp := mesh.push_constant
 	
-				mvp *= scene.camera.viewMatrix
-				mvp *= scene.camera.projectionMatrix
+				mvp.mvp = mesh.push_constant.m
+				mvp.mvp *= scene.camera.viewMatrix
+				mvp.mvp *= scene.camera.projectionMatrix
 	
-				vk.CmdPushConstants(cmd_buffer, pipeline_layout, {.VERTEX}, 0, size_of(mvp), &mvp)
+				vk.CmdPushConstants(cmd_buffer, pipeline_layout, {.VERTEX}, 0, size_of(PushConstant), &mvp)
 				vk.CmdBindVertexBuffers(cmd_buffer, 0, 1, &mesh.vertex_buffer_resource.buffer, &offsets[0])
 				vk.CmdBindIndexBuffer(cmd_buffer, mesh.index_buffer_resource.buffer, 0, .UINT32)
 	

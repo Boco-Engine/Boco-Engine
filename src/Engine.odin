@@ -22,7 +22,7 @@ init_mesh :: proc(renderer: ^boco_renderer.Renderer, file: string) -> ^boco_rend
     mesh_err : bool
     mesh^, mesh_err = boco_renderer.read_bocom_mesh(file)
 
-    mesh.push_constant.mvp = matrix[4, 4]f32{
+    mesh.push_constant.m = matrix[4, 4]f32{
         1, 0, 0, 0,
         0, 1, 0, 0,
         0, 0, 1, 0,
@@ -105,7 +105,7 @@ run :: proc(using engine: ^Engine) {
         boco_renderer.submit_render(&renderer)
 
         for mesh in &renderer.scenes[0].static_meshes {
-            mesh.push_constant.mvp *= matrix[4, 4]f32 {
+            mesh.push_constant.m *= matrix[4, 4]f32 {
                 math.cos_f32(0.001), 0, -math.sin_f32(0.001), 0,
                 0, 1, 0, 0,
                 math.sin_f32(0.001), 0, math.cos_f32(0.001), 0,

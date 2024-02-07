@@ -81,6 +81,15 @@ read_bocom_mesh :: proc(file_name: string) -> (mesh: IndexedMesh, err: bool = fa
             cast(f32)strconv.atof(position_parts[2]),
         }
 
+        normal := parts[1]
+        normal_parts := strings.split(normal, " ")
+
+        mesh.vertex_data[vertex].normal = {
+            cast(f32)strconv.atof(normal_parts[0]),
+            cast(f32)strconv.atof(normal_parts[1]),
+            cast(f32)strconv.atof(normal_parts[2]),
+        }
+
         index += 1
     }
 
@@ -104,32 +113,32 @@ read_bocom_mesh :: proc(file_name: string) -> (mesh: IndexedMesh, err: bool = fa
         mesh.index_data[i * 3 + 2] = cast(u32)strconv.atoi(parts[2])
 
         // TEMP NORMALS CALC
-        tri1 := mesh.vertex_data[mesh.index_data[i * 3]]
-        tri2 := mesh.vertex_data[mesh.index_data[i * 3 + 1]]
-        tri3 := mesh.vertex_data[mesh.index_data[i * 3 + 2]]
+        // tri1 := mesh.vertex_data[mesh.index_data[i * 3]]
+        // tri2 := mesh.vertex_data[mesh.index_data[i * 3 + 1]]
+        // tri3 := mesh.vertex_data[mesh.index_data[i * 3 + 2]]
 
-        A := tri2.position - tri1.position
-        B := tri3.position - tri1.position
+        // A := tri2.position - tri1.position
+        // B := tri3.position - tri1.position
 
-        normal := Vec3{
-            A[1] * B[2] - A[2] * B[1],
-            A[2] * B[0] - A[0] * B[2],
-            A[0] * B[1] - A[1] * B[0],
-        }
+        // normal := Vec3{
+        //     A[1] * B[2] - A[2] * B[1],
+        //     A[2] * B[0] - A[0] * B[2],
+        //     A[0] * B[1] - A[1] * B[0],
+        // }
 
-        normal = auto_cast glsl.normalize_vec3(auto_cast normal)
-        normal += 1
-        normal /= 2
+        // normal = auto_cast glsl.normalize_vec3(auto_cast normal)
+        // normal += 1
+        // normal /= 2
 
-        mesh.vertex_data[mesh.index_data[i * 3]].normal = normal
-        mesh.vertex_data[mesh.index_data[i * 3 + 1]].normal = normal
-        mesh.vertex_data[mesh.index_data[i * 3 + 2]].normal = normal
+        // mesh.vertex_data[mesh.index_data[i * 3]].normal = normal
+        // mesh.vertex_data[mesh.index_data[i * 3 + 1]].normal = normal
+        // mesh.vertex_data[mesh.index_data[i * 3 + 2]].normal = normal
 
-        dist := (glsl.length_vec3(auto_cast mesh.vertex_data[mesh.index_data[i * 3]].position) - 980.0) / 100.0
+        // dist := (glsl.length_vec3(auto_cast mesh.vertex_data[mesh.index_data[i * 3]].position) - 980.0) / 100.0
 
-        mesh.vertex_data[mesh.index_data[i * 3]].normal = auto_cast glsl.vec3{dist, dist, dist}
-        mesh.vertex_data[mesh.index_data[i * 3 + 1]].normal = auto_cast glsl.vec3{dist, dist, dist}
-        mesh.vertex_data[mesh.index_data[i * 3 + 2]].normal = auto_cast glsl.vec3{dist, dist, dist}
+        // mesh.vertex_data[mesh.index_data[i * 3]].normal = auto_cast glsl.vec3{dist, dist, dist}
+        // mesh.vertex_data[mesh.index_data[i * 3 + 1]].normal = auto_cast glsl.vec3{dist, dist, dist}
+        // mesh.vertex_data[mesh.index_data[i * 3 + 2]].normal = auto_cast glsl.vec3{dist, dist, dist}
 
         index += 1
     }
