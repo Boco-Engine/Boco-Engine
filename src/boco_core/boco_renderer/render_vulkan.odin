@@ -5,13 +5,12 @@ import "core:log"
 import "core:math"
 import "../boco_window"
 
-render_scene :: proc(using renderer: ^Renderer, scene: Scene(5000), view_area: boco_window.ViewArea) {
+begin_render :: proc(using renderer: ^Renderer, view_area: boco_window.ViewArea) {
     cmd_buffer := command_buffers[current_frame_index]
 
 	fence_err := vk.WaitForFences(logical_device, 1, &in_flight[current_frame_index], true, ~u64(0))
 	if fence_err != .SUCCESS do return
 
-	image_index: u32
 	err := vk.AcquireNextImageKHR(logical_device, swapchain, ~u64(0), image_available[current_frame_index], 0, &image_index)
 	if err == .SUBOPTIMAL_KHR {
 		on_resize(renderer)
@@ -28,68 +27,54 @@ render_scene :: proc(using renderer: ^Renderer, scene: Scene(5000), view_area: b
 
 	vk.ResetCommandBuffer(cmd_buffer, {})
 	vk.BeginCommandBuffer(cmd_buffer, &begin_info)
-	{
-		s := vk.Rect2D {
-			vk.Offset2D {
-				x = cast(i32)view_area.x,
-				y = cast(i32)view_area.y,
-			},
-			vk.Extent2D {
-				width = cast(u32)view_area.width,
-				height = cast(u32)view_area.height,
-			},
-		}
-
-		v := vk.Viewport {
-			x =        view_area.x,
-			y =        view_area.y,
-			width =    view_area.width,
-			height =   view_area.height,
-			minDepth = viewport.minDepth,
-			maxDepth = viewport.maxDepth,
-		}
-
-		// These can be constants
-		clear_values : [2]vk.ClearValue
-		clear_values[0].color.float32 = {1.0, 0.0, 1.0, 1.0}
-		clear_values[1].depthStencil.depth = 1.0
-
-		render_pass_begin_info: vk.RenderPassBeginInfo
-		render_pass_begin_info.sType = .RENDER_PASS_BEGIN_INFO
-		render_pass_begin_info.renderPass = render_pass
-		render_pass_begin_info.framebuffer = framebuffers[image_index]
-		render_pass_begin_info.renderArea = s // NOTE: Dont actually need to keep scissor struct in renderer struct, can just use the window viewarea.
-		render_pass_begin_info.clearValueCount = len(clear_values)
-		render_pass_begin_info.pClearValues = &clear_values[0]
-
-		vk.CmdBeginRenderPass(cmd_buffer, &render_pass_begin_info, .INLINE)
-
-		vk.CmdSetScissor(cmd_buffer, 0, 1, &s)
-		vk.CmdSetViewport(cmd_buffer, 0, 1, &v)
-
-		vk.CmdBindPipeline(cmd_buffer, .GRAPHICS, graphics_pipeline)
-
-		// TODO: Move to ECS rendering not this.
-		// for mesh in scene.static_meshes {
-
-		// 	offsets := [?]vk.DeviceSize{0}
-
-		// 	mvp := mesh.push_constant
-
-		// 	mvp.mvp = mesh.push_constant.m
-		// 	mvp.mvp *= scene.camera.viewMatrix
-		// 	mvp.mvp *= scene.camera.projectionMatrix
-
-		// 	vk.CmdPushConstants(cmd_buffer, pipeline_layout, {.VERTEX}, 0, size_of(PushConstant), &mvp)
-		// 	vk.CmdBindVertexBuffers(cmd_buffer, 0, 1, &mesh.vertex_buffer_resource.buffer, &offsets[0])
-		// 	vk.CmdBindIndexBuffer(cmd_buffer, mesh.index_buffer_resource.buffer, 0, .UINT32)
-
-		// 	vk.CmdDrawIndexed(cmd_buffer, cast(u32)len(mesh.index_data), 1, 0, 0, 0)
-		// }
-
-		vk.CmdEndRenderPass(cmd_buffer)
-		
+	
+	
+	s := vk.Rect2D {
+		vk.Offset2D {
+			x = cast(i32)view_area.x,
+			y = cast(i32)view_area.y,
+		},
+		vk.Extent2D {
+			width = cast(u32)view_area.width,
+			height = cast(u32)view_area.height,
+		},
 	}
+
+	v := vk.Viewport {
+		x =        view_area.x,
+		y =        view_area.y,
+		width =    view_area.width,
+		height =   view_area.height,
+		minDepth = viewport.minDepth,
+		maxDepth = viewport.maxDepth,
+	}
+
+	// These can be constants
+	clear_values : [2]vk.ClearValue
+	clear_values[0].color.float32 = {1.0, 0.0, 1.0, 1.0}
+	clear_values[1].depthStencil.depth = 1.0
+
+	render_pass_begin_info: vk.RenderPassBeginInfo
+	render_pass_begin_info.sType = .RENDER_PASS_BEGIN_INFO
+	render_pass_begin_info.renderPass = render_pass
+	render_pass_begin_info.framebuffer = framebuffers[image_index]
+	render_pass_begin_info.renderArea = s // NOTE: Dont actually need to keep scissor struct in renderer struct, can just use the window viewarea.
+	render_pass_begin_info.clearValueCount = len(clear_values)
+	render_pass_begin_info.pClearValues = &clear_values[0]
+
+	vk.CmdBeginRenderPass(cmd_buffer, &render_pass_begin_info, .INLINE)
+
+	vk.CmdSetScissor(cmd_buffer, 0, 1, &s)
+	vk.CmdSetViewport(cmd_buffer, 0, 1, &v)
+
+	vk.CmdBindPipeline(cmd_buffer, .GRAPHICS, graphics_pipeline)
+}
+
+end_render :: proc(using renderer: ^Renderer, view_area: boco_window.ViewArea) {
+	cmd_buffer := command_buffers[current_frame_index]
+
+	vk.CmdEndRenderPass(cmd_buffer)
+	
 	vk.EndCommandBuffer(cmd_buffer)
 
 

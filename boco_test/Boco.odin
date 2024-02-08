@@ -2,12 +2,14 @@ package boco_test
 
 import boco "../src"
 import "../src/boco_core/boco_renderer"
+import "../src/boco_core/boco_window"
+import "../src/boco_core/boco_ecs"
 import "core:log"
 import "core:fmt"
 import "core:os"
 
 setup_test :: proc(engine: ^boco.Engine) {
-    engine.scenes = make([dynamic]boco_renderer.Scene(5000), 1)
+    append(&engine.scenes, boco_renderer.Scene{})
     engine.scenes[0].name = "Test Scene"
     engine.scenes[0].camera = boco_renderer.make_camera(90, cast(f32)engine.window.width / cast(f32)engine.window.height)
 }
@@ -19,6 +21,11 @@ run_test :: proc(engine: ^boco.Engine) {
         running &= boco.HandleInputs(engine)
         running &= boco.UpdatePhysics(engine)
         running &= boco.RenderScene(engine, engine.scenes[0], {0, 0, cast(f32)engine.window.width, cast(f32)engine.window.height})
+        
+        view_area := boco_window.ViewArea{0, 0, cast(f32)engine.window.width, cast(f32)engine.window.height}
+        boco_renderer.begin_render(&engine.renderer, view_area)
+        boco_ecs.update(cast(^any)engine, &engine.scenes[0].ecs)
+        boco_renderer.end_render(&engine.renderer, view_area)
     }
 }
 

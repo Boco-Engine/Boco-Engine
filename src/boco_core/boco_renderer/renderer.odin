@@ -36,7 +36,20 @@ Renderer :: struct {
 
     ui_context: microui.Context,
 
-    mesh_map: map[MeshID]IndexedMesh,
+    mesh_ids: map[string]MeshID,
+    meshes: map[MeshID]^IndexedMesh,
+
+    _next_mesh_id: u32,
+}
+
+load_mesh_file :: proc(using renderer: ^Renderer, path: string) -> MeshID {
+    mesh_id, exists := mesh_ids[path]
+    if exists do return mesh_id
+
+    mesh_ids[path] = _next_mesh_id
+    meshes[_next_mesh_id] = init_mesh(renderer, path)
+    _next_mesh_id += 1
+    return mesh_ids[path]
 }
 
 init_ui :: proc(using renderer: ^Renderer) {

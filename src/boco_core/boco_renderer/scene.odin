@@ -4,7 +4,7 @@ import "../boco_window"
 import "../boco_ecs"
 
 // TODO: Get rid of this taking max entities -> Either make ecs dynamic or set constant.
-Scene :: struct($max_entities: u32) {
+Scene :: struct {
     // Identification things, maybe add u32 ID.
     name: string,
 
@@ -15,5 +15,5 @@ Scene :: struct($max_entities: u32) {
     // entire system means we need to re-register all out components and systems, but we can make functions for that
     // just entities means we have to add and clear to an existing ecs, which might be slower than having entirely new ones?
     // Just entities allows keeping entities between scenes, otherwise need to create copy for new ECS.
-    ecs: boco_ecs.ECS(max_entities),
+    ecs: boco_ecs.ECS,
 }

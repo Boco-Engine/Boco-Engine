@@ -80,6 +80,7 @@ RendererInternals :: struct {
     viewport : vk.Viewport,
     scissor: vk.Rect2D,
     current_frame_index: u32,
+	image_index: u32,
 
     // Synchronization
     image_available: []vk.Semaphore,

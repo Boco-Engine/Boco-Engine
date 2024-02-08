@@ -17,29 +17,7 @@ Engine :: struct {
 
     window : boco_window.Window,
     renderer : boco_renderer.Renderer,
-    scenes: [dynamic]boco_renderer.Scene(5000), // Need to pass the amount of max entities for each entity, need to change, dont want menu having same as the game.
-}
-
-init_mesh :: proc(renderer: ^boco_renderer.Renderer, file: string) -> ^boco_renderer.IndexedMesh {
-    mesh := new(boco_renderer.IndexedMesh)
-    mesh_err : bool
-    mesh^, mesh_err = boco_renderer.read_bocom_mesh(file)
-
-    mesh.push_constant.m = matrix[4, 4]f32{
-        1, 0, 0, 0,
-        0, 1, 0, 0,
-        0, 0, 1, 0,
-        0, 0, 0, 1,
-    }
-
-    // CREATE VERTEX BUFFER
-    boco_renderer.allocate_buffer(renderer, boco_renderer.Vertex, auto_cast len(mesh.vertex_data), {.VERTEX_BUFFER}, &mesh.vertex_buffer_resource)
-    boco_renderer.write_to_buffer(renderer, &mesh.vertex_buffer_resource, mesh.vertex_data, 0)
-    // CREATE INDEX BUFFER
-    boco_renderer.allocate_buffer(renderer, u32, auto_cast len(mesh.index_data), {.INDEX_BUFFER}, &mesh.index_buffer_resource)
-    boco_renderer.write_to_buffer(renderer, &mesh.index_buffer_resource, mesh.index_data, 0)
-    // ADD TO DRAW LIST
-    return mesh
+    scenes: [dynamic]boco_renderer.Scene, // Need to pass the amount of max entities for each entity, need to change, dont want menu having same as the game.
 }
 
 init :: proc(using engine: ^Engine) -> (ok: bool = false) {
@@ -70,8 +48,8 @@ UpdatePhysics :: proc(using engine: ^Engine) -> (ok: bool = true) {
     return
 }
 
-RenderScene :: proc(using engine: ^Engine, scene: boco_renderer.Scene(5000), view_area: boco_window.ViewArea) -> (ok: bool = true) {
-    boco_renderer.render_scene(&renderer, scene, view_area)
+RenderScene :: proc(using engine: ^Engine, scene: boco_renderer.Scene, view_area: boco_window.ViewArea) -> (ok: bool = true) {
+    // boco_renderer.render_scene(&renderer, scene, view_area)
 
     // RenderMeshAction(engine, scene.ecs, )
 
@@ -124,16 +102,6 @@ run :: proc(using engine: ^Engine) {
                     
             }
         }
-
-        // Rotate planet
-        // for mesh in &renderer.scenes[0].static_meshes {
-        //     mesh.push_constant.mvp *= matrix[4, 4]f32 {
-        //         math.cos_f32(0.001), 0, -math.sin_f32(0.001), 0,
-        //         0, 1, 0, 0,
-        //         math.sin_f32(0.001), 0, math.cos_f32(0.001), 0,
-        //         0, 0, 0, 1,
-        //     }
-        // }
     }
 }
 
