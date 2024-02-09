@@ -58,7 +58,6 @@ RenderScene :: proc(using engine: ^Engine, scene: boco_renderer.Scene, view_area
 
 RenderFrame :: proc(using engine: ^Engine) -> (ok: bool = true) {
     ok &= boco_renderer.update(&renderer)
-    boco_renderer.submit_render(&renderer)
     return
 }
 

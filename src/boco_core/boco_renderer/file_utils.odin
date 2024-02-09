@@ -5,6 +5,21 @@ import "core:strings"
 import "core:log"
 import "core:strconv"
 import "core:math/linalg/glsl"
+import stbi "vendor:stb/image"
+
+load_texture :: proc(renderer: ^Renderer, file: string, channels: i32) {
+    texture: Texture
+
+    file_path := make_file_path("local_tests/planet_loading/Assets/Textures/", file)
+
+    image_width: i32
+    image_height: i32
+    image_channels: i32
+    image := stbi.load(strings.unsafe_string_to_cstring(file_path), &image_width, &image_height, &image_channels, channels)
+    
+    staging_buffer: BufferResources
+    allocate_buffer(renderer, )
+}
 
 init_mesh :: proc(renderer: ^Renderer, file: string) -> ^IndexedMesh {
     mesh := new(IndexedMesh)

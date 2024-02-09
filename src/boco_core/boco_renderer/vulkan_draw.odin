@@ -111,11 +111,7 @@ end_render :: proc(using renderer: ^Renderer, view_area: boco_window.ViewArea) {
 	current_frame_index %= swapchain_settings.image_count
 }
 
-submit_render :: proc(using renderer: ^Renderer) {
-
-
-}
-
+// TODO: This doesnt belong here.
 destroy_mesh :: proc(using renderer: ^Renderer, mesh: ^IndexedMesh) {
 	vk.FreeMemory(logical_device, mesh.index_buffer_resource.memory, nil)
 	vk.DestroyBuffer(logical_device, mesh.index_buffer_resource.buffer, nil)
