@@ -56,27 +56,27 @@ handle_window_event_or_delegate :: proc(using window: ^Window){
             }
         case .KEYDOWN:
             window_event.state = Window_state.Key
-            handle_key_event(event, &window_event.input_event, boco_event_data.Key_state.Pressed)
+            handle_key_event(window.input_data, event, &window_event.input_event, boco_event_data.Key_state.Pressed)
         case .KEYUP:
             window_event.state = Window_state.Key
-            handle_key_event(event, &window_event.input_event, boco_event_data.Key_state.Released)
+            handle_key_event(window.input_data, event, &window_event.input_event, boco_event_data.Key_state.Released)
         case .MOUSEBUTTONDOWN:
             window_event.state = Window_state.Mouse
-            handle_mouse_event(event, &window_event.input_event, boco_event_data.Mouse_state.Pressed, 0, 0, 0, 0)
+            handle_mouse_event(window.input_data, event, &window_event.input_event, boco_event_data.Mouse_state.Pressed, 0, 0, 0, 0)
         case .MOUSEBUTTONUP:
             window_event.state = Window_state.Mouse
-            handle_mouse_event(event, &window_event.input_event, boco_event_data.Mouse_state.Released, 0, 0, 0, 0)
+            handle_mouse_event(window.input_data, event, &window_event.input_event, boco_event_data.Mouse_state.Released, 0, 0, 0, 0)
         case .MOUSEMOTION:
             window_event.state = Window_state.Mouse
-            handle_mouse_event(event, &window_event.input_event, boco_event_data.Mouse_state.Moved, event.motion.x, event.motion.y, 0, 0)
+            handle_mouse_event(window.input_data, event, &window_event.input_event, boco_event_data.Mouse_state.Moved, event.motion.x, event.motion.y, 0, 0)
         case .MOUSEWHEEL:
             window_event.state = Window_state.Mouse
-            handle_mouse_event(event, &window_event.input_event, boco_event_data.Mouse_state.Wheel, 0, 0, event.wheel.x, event.wheel.y)
+            handle_mouse_event(window.input_data, event, &window_event.input_event, boco_event_data.Mouse_state.Wheel, 0, 0, event.wheel.x, event.wheel.y)
         }
     }
 }
 
-handle_key_event :: proc(event : sdl.Event, input_event : ^boco_input.Input_event, key_state : boco_event_data.Key_state){
+handle_key_event :: proc(input_data : boco_input.Input_data, event : sdl.Event, input_event : ^boco_input.Input_event, key_state : boco_event_data.Key_state){
     key_from_code := boco_event_data.key_name_from_code
     scancode := cast(int)event.key.keysym.scancode
     if scancode < len(key_from_code) {
@@ -90,13 +90,13 @@ handle_key_event :: proc(event : sdl.Event, input_event : ^boco_input.Input_even
 
     #partial switch key_state{
         case boco_event_data.Key_state.Pressed:
-            boco_input.handle_key_down(input_event.key_event)
+            boco_input.handle_key_down(input_event.key_event, input_data)
         case boco_event_data.Key_state.Released:
-            boco_input.handle_key_up(input_event.key_event)
+            boco_input.handle_key_up(input_event.key_event, input_data)
     }
 }
 
-handle_mouse_event :: proc(event : sdl.Event, input_event : ^boco_input.Input_event, mouse_state : boco_event_data.Mouse_state, motion_x : i32, motion_y : i32, scroll_x : i32, scroll_y : i32){
+handle_mouse_event :: proc(input_data : boco_input.Input_data, event : sdl.Event, input_event : ^boco_input.Input_event, mouse_state : boco_event_data.Mouse_state, motion_x : i32, motion_y : i32, scroll_x : i32, scroll_y : i32){
     input_event.mouse_event.state = mouse_state
     input_event.mouse_event.x = motion_x
     input_event.mouse_event.y = motion_y
@@ -122,12 +122,12 @@ handle_mouse_event :: proc(event : sdl.Event, input_event : ^boco_input.Input_ev
 
     #partial switch mouse_state{
         case boco_event_data.Mouse_state.Pressed:
-            boco_input.handle_mouse_down(input_event.mouse_event)
+            boco_input.handle_mouse_down(input_event.mouse_event, input_data)
         case boco_event_data.Mouse_state.Released:
-            boco_input.handle_mouse_up(input_event.mouse_event)
+            boco_input.handle_mouse_up(input_event.mouse_event, input_data)
         case boco_event_data.Mouse_state.Moved:
-            boco_input.handle_mouse_move(input_event.mouse_event)
+            boco_input.handle_mouse_move(input_event.mouse_event, input_data)
         case boco_event_data.Mouse_state.Wheel:
-            boco_input.handle_mouse_wheel(input_event.mouse_event)
+            boco_input.handle_mouse_wheel(input_event.mouse_event, input_data)
     }
 }

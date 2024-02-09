@@ -15,6 +15,9 @@ Key_state :: enum{
     Pressed,
     Released,
     Held,
+    Moved,
+    Wheel,
+    Unknown
 }
 
 Key_name :: enum{
@@ -546,5 +549,5 @@ key_name_from_code :: [?]Key_name{
     Key_name.Eject,
     Key_name.Sleep,
     Key_name.App1,
-    Key_name.App2
+    Key_name.App2,
 }

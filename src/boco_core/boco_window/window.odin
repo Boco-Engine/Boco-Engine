@@ -3,6 +3,7 @@ package boco_window
 GRAPHICS_API :: #config(GRAPHICS_API, "vulkan")
 
 import "core:log"
+import "../boco_input"
 import sdl "vendor:sdl2"
 import vk "vendor:vulkan"
 
@@ -15,7 +16,8 @@ Window :: struct {
     view_area: ViewArea,
     child_windows: [dynamic]Window,
     parent_window: ^Window,
-    is_ready_to_close: bool
+    is_ready_to_close: bool,
+    input_data: boco_input.Input_data
 }
 
 update_size :: proc(using window: ^Window) {
