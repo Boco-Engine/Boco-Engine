@@ -17,9 +17,9 @@ Mouse_data :: struct{
     wheel_y: i32,
 }
 
-Input_event :: struct{
-    key_event: boco_event_data.Key_event,
-    mouse_event: boco_event_data.Mouse_event,
+Input_event :: union{
+    boco_event_data.Key_event,
+    boco_event_data.Mouse_event,
 }
 
 Key_state_info :: struct{

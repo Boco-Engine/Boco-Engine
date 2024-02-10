@@ -6,7 +6,6 @@ import "../boco_input"
 Window_event :: struct{
     window: ^Window,
     state: Window_state,
-    input_event: boco_input.Input_event,
     propagate_to_parent: bool,
     event_handled: bool,
 }
