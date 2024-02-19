@@ -1,25 +1,19 @@
 package boco_renderer
 
 import "../boco_window"
+import "../boco_ecs"
 
-// TODO: Not really a fan of this structure, weird for scene to have the view area
-// TODO: View area needs to be updated on resize
-// TODO: Extract View area and allow rendering a scene to any view area and reusing same scene for multiple view areas.
+// TODO: Get rid of this taking max entities -> Either make ecs dynamic or set constant.
 Scene :: struct {
-    // Identification things
+    // Identification things, maybe add u32 ID.
     name: string,
 
-    // Where to render
-    window: boco_window.Window,
-    view_area: boco_window.ViewArea,
+    // Is the camera an entity? Yes?
     camera: Camera,
-    clear_value: [4]f32, // NOTE: This is just to see difference between current view areas, not neccessary
 
-    // What to render
-    static_meshes: []^IndexedMesh, // Meshes which exist the entire duration of the scene.
-    meshes: [dynamic]^IndexedMesh, // Meshes which are added and removed throughout the scene. probably still want to preallocate size as this could result in some optimization issues if need to reallocate entire array.
-}
-
-change_scene :: proc(using renderer: ^Renderer) {
-    current_scene_id = (current_scene_id + 1) % cast(u32)len(scenes)
+    // Do we want an entire entity component system struct or just entities?
+    // entire system means we need to re-register all out components and systems, but we can make functions for that
+    // just entities means we have to add and clear to an existing ecs, which might be slower than having entirely new ones?
+    // Just entities allows keeping entities between scenes, otherwise need to create copy for new ECS.
+    ecs: boco_ecs.ECS,
 }

@@ -6,6 +6,28 @@ import "core:log"
 import "core:strconv"
 import "core:math/linalg/glsl"
 
+init_mesh :: proc(renderer: ^Renderer, file: string) -> ^IndexedMesh {
+    mesh := new(IndexedMesh)
+    mesh_err : bool
+    mesh^, mesh_err = read_bocom_mesh(file)
+
+    mesh.push_constant.m = matrix[4, 4]f32{
+        1, 0, 0, 0,
+        0, 1, 0, 0,
+        0, 0, 1, 0,
+        0, 0, 0, 1,
+    }
+
+    // CREATE VERTEX BUFFER
+    allocate_buffer(renderer, Vertex, auto_cast len(mesh.vertex_data), {.VERTEX_BUFFER}, &mesh.vertex_buffer_resource)
+    write_to_buffer(renderer, &mesh.vertex_buffer_resource, mesh.vertex_data, 0)
+    // CREATE INDEX BUFFER
+    allocate_buffer(renderer, u32, auto_cast len(mesh.index_data), {.INDEX_BUFFER}, &mesh.index_buffer_resource)
+    write_to_buffer(renderer, &mesh.index_buffer_resource, mesh.index_data, 0)
+    // ADD TO DRAW LIST
+    return mesh
+}
+
 make_file_path :: proc(folder : string, file : string) -> (path : string) {
     builder := strings.builder_make(0, len(folder) + len(file) + 1)
     strings.write_string(&builder, folder)
@@ -15,7 +37,8 @@ make_file_path :: proc(folder : string, file : string) -> (path : string) {
 }
 
 read_spirv :: proc(file_name : string) -> (code : []u8, err : bool = true) {
-    path : string = make_file_path("Shaders/compiled", file_name)
+    // TODO: More robust way to get the folder path.
+    path : string = make_file_path("../Boco-Engine/Shaders/compiled", file_name)
 
     file_contents, ok := os.read_entire_file(path, context.allocator)
 
@@ -43,7 +66,8 @@ read_mesh :: proc(file_name : string) -> (mesh : IndexedMesh, err: bool = false)
 
 read_bocom_mesh :: proc(file_name: string) -> (mesh: IndexedMesh, err: bool = false) {
     log.info("Reading BOCOM: ", file_name)
-    file_path := make_file_path("Assets/Meshes", file_name)
+    // TODO: More Robust way to find files
+    file_path := make_file_path("local_tests/planet_loading/Assets/Meshes", file_name)
 
     file_contents, ok := os.read_entire_file(file_path, context.allocator)
     assert(ok, "Failed to read BOCOM file")
@@ -81,6 +105,15 @@ read_bocom_mesh :: proc(file_name: string) -> (mesh: IndexedMesh, err: bool = fa
             cast(f32)strconv.atof(position_parts[2]),
         }
 
+        normal := parts[1]
+        normal_parts := strings.split(normal, " ")
+
+        mesh.vertex_data[vertex].normal = {
+            cast(f32)strconv.atof(normal_parts[0]),
+            cast(f32)strconv.atof(normal_parts[1]),
+            cast(f32)strconv.atof(normal_parts[2]),
+        }
+
         index += 1
     }
 
@@ -104,37 +137,37 @@ read_bocom_mesh :: proc(file_name: string) -> (mesh: IndexedMesh, err: bool = fa
         mesh.index_data[i * 3 + 2] = cast(u32)strconv.atoi(parts[2])
 
         // TEMP NORMALS CALC
-        tri1 := mesh.vertex_data[mesh.index_data[i * 3]]
-        tri2 := mesh.vertex_data[mesh.index_data[i * 3 + 1]]
-        tri3 := mesh.vertex_data[mesh.index_data[i * 3 + 2]]
+        // tri1 := mesh.vertex_data[mesh.index_data[i * 3]]
+        // tri2 := mesh.vertex_data[mesh.index_data[i * 3 + 1]]
+        // tri3 := mesh.vertex_data[mesh.index_data[i * 3 + 2]]
 
-        A := tri2.position - tri1.position
-        B := tri3.position - tri1.position
+        // A := tri2.position - tri1.position
+        // B := tri3.position - tri1.position
 
-        normal := Vec3{
-            A[1] * B[2] - A[2] * B[1],
-            A[2] * B[0] - A[0] * B[2],
-            A[0] * B[1] - A[1] * B[0],
-        }
+        // normal := Vec3{
+        //     A[1] * B[2] - A[2] * B[1],
+        //     A[2] * B[0] - A[0] * B[2],
+        //     A[0] * B[1] - A[1] * B[0],
+        // }
 
-        normal = auto_cast glsl.normalize_vec3(auto_cast normal)
-        normal += 1
-        normal /= 2
+        // normal = auto_cast glsl.normalize_vec3(auto_cast normal)
+        // normal += 1
+        // normal /= 2
 
-        mesh.vertex_data[mesh.index_data[i * 3]].normal = normal
-        mesh.vertex_data[mesh.index_data[i * 3 + 1]].normal = normal
-        mesh.vertex_data[mesh.index_data[i * 3 + 2]].normal = normal
+        // mesh.vertex_data[mesh.index_data[i * 3]].normal = normal
+        // mesh.vertex_data[mesh.index_data[i * 3 + 1]].normal = normal
+        // mesh.vertex_data[mesh.index_data[i * 3 + 2]].normal = normal
 
-        dist := (glsl.length_vec3(auto_cast mesh.vertex_data[mesh.index_data[i * 3]].position) - 2950.0) / 100.0
+        // dist := (glsl.length_vec3(auto_cast mesh.vertex_data[mesh.index_data[i * 3]].position) - 980.0) / 100.0
 
-        mesh.vertex_data[mesh.index_data[i * 3]].normal = auto_cast glsl.vec3{dist, dist, dist}
-        mesh.vertex_data[mesh.index_data[i * 3 + 1]].normal = auto_cast glsl.vec3{dist, dist, dist}
-        mesh.vertex_data[mesh.index_data[i * 3 + 2]].normal = auto_cast glsl.vec3{dist, dist, dist}
+        // mesh.vertex_data[mesh.index_data[i * 3]].normal = auto_cast glsl.vec3{dist, dist, dist}
+        // mesh.vertex_data[mesh.index_data[i * 3 + 1]].normal = auto_cast glsl.vec3{dist, dist, dist}
+        // mesh.vertex_data[mesh.index_data[i * 3 + 2]].normal = auto_cast glsl.vec3{dist, dist, dist}
 
         index += 1
     }
 
-    log.debug(len(mesh.vertex_data))
+    log.debug("Vertices: ", len(mesh.vertex_data))
 
     return mesh, true
 }

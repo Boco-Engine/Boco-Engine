@@ -6,6 +6,7 @@ import "core:log"
 import "../boco_input"
 import sdl "vendor:sdl2"
 import vk "vendor:vulkan"
+import "vendor:microui"
 
 Window :: struct {
     name: cstring,
@@ -25,13 +26,12 @@ update_size :: proc(using window: ^Window) {
     sdl.GetWindowSize(view_window, &w, &h)
     width = cast(u32)w
     height = cast(u32)h
-    log.error("WIDTH: ", width, " HEIGHT: ", height)
 }
 
 init :: proc(using window: ^Window, title: cstring = "BOCO") -> (ok: bool = true) {
     name = title
     log.info("Initialising Window:", name)
-    view_window = sdl.CreateWindow(name, sdl.WINDOWPOS_UNDEFINED, sdl.WINDOWPOS_UNDEFINED, 500, 500, {.VULKAN, .RESIZABLE})
+    view_window = sdl.CreateWindow(name, sdl.WINDOWPOS_UNDEFINED, sdl.WINDOWPOS_UNDEFINED, 1000, 1000, {.VULKAN, .RESIZABLE})
     window_id = sdl.GetWindowID(view_window)
     log.info("WindowID", window_id)
     

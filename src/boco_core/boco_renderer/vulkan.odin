@@ -6,6 +6,9 @@ import "core:fmt"
 import vk "vendor:vulkan"
 import sdl "vendor:sdl2"
 import "../boco_window"
+import "../../benchmarks"
+
+import "../boco_ecs"
 
 foreign import vulkan "vulkan-1.lib"
 
@@ -49,6 +52,7 @@ RendererInternals :: struct {
     render_pass: vk.RenderPass,
     framebuffers: []vk.Framebuffer,
     descriptor_pool: vk.DescriptorPool,
+    ui_descriptor_pool: vk.DescriptorPool,
     pipeline_layout: vk.PipelineLayout,
     graphics_pipeline: vk.Pipeline,
     // NOTE: Only 1 queue of each type, might want to expand this later.
@@ -76,6 +80,7 @@ RendererInternals :: struct {
     viewport : vk.Viewport,
     scissor: vk.Rect2D,
     current_frame_index: u32,
+	image_index: u32,
 
     // Synchronization
     image_available: []vk.Semaphore,
@@ -169,6 +174,9 @@ init_vulkan :: proc(using renderer: ^Renderer) -> (ok: bool = false)
 
     create_command_buffers(renderer)
 
+    image_available =   make([]vk.Semaphore,    swapchain_settings.image_count)
+    render_finished =   make([]vk.Semaphore,    swapchain_settings.image_count)
+    in_flight       =   make([]vk.Fence,        swapchain_settings.image_count)
     create_semaphores_and_fences(renderer)
 
     return true
@@ -184,6 +192,10 @@ on_resize :: proc(using renderer: ^Renderer) {
 
         vk.DestroyImageView(logical_device, swapchain_imageviews[i], nil)
         vk.DestroyFramebuffer(logical_device, framebuffers[i], nil)
+
+        vk.DestroyFence(logical_device, in_flight[i], nil)
+        vk.DestroySemaphore(logical_device, render_finished[i], nil)
+        vk.DestroySemaphore(logical_device, image_available[i], nil)
     }
 
     boco_window.update_size(main_window);
@@ -194,10 +206,18 @@ on_resize :: proc(using renderer: ^Renderer) {
     retrieve_swapchain_images(renderer)
     init_depth_resources(renderer)
     create_framebuffers(renderer)
+
+    create_semaphores_and_fences(renderer)
 }
 
 cleanup_vulkan :: proc(using renderer: ^Renderer) {
     log.info("Cleaning Vulkan resources")
+
+    for i in 0..<swapchain_settings.image_count {
+        vk.FreeMemory(logical_device, depth_memory[i], nil)
+        vk.DestroyImageView(logical_device, depth_imageviews[i], nil)
+        vk.DestroyImage(logical_device, depth_images[i], nil)
+    }
 
     vk.DeviceWaitIdle(logical_device)
 
@@ -218,6 +238,7 @@ cleanup_vulkan :: proc(using renderer: ^Renderer) {
     delete(framebuffers)
     vk.DestroyPipeline(logical_device, graphics_pipeline, nil)
     vk.DestroyPipelineLayout(logical_device, pipeline_layout, nil)
+    vk.DestroyDescriptorPool(logical_device, ui_descriptor_pool, nil)
     vk.DestroyDescriptorPool(logical_device, descriptor_pool, nil)
     vk.DestroyRenderPass(logical_device, render_pass, nil)
     for &imageview in swapchain_imageviews {
@@ -269,8 +290,7 @@ init_instance :: proc(using renderer: ^Renderer, layers, extensions: []cstring) 
 
     res := vk.CreateInstance(&instance_info, nil, &instance)
     if res != .SUCCESS {
-        log.error("Failed initialising Vulkan Instance")
-        log.error(res)
+        log.error("Failed initialising Vulkan Instance: ", res)
         return false
     }
 
@@ -356,7 +376,6 @@ init_swapchain :: proc(using renderer: ^Renderer) -> (ok: bool = false) {
     vk.GetPhysicalDeviceSurfaceCapabilitiesKHR(physical_device, surface, &caps)
 
     extent : vk.Extent2D = caps.currentExtent
-    log.error(extent)
 
     temp := old_swapchain
     old_swapchain = swapchain
@@ -378,7 +397,11 @@ init_swapchain :: proc(using renderer: ^Renderer) -> (ok: bool = false) {
     info.oldSwapchain = old_swapchain
 
     
-    log.error(vk.CreateSwapchainKHR(logical_device, &info, nil, &swapchain))
+    res := vk.CreateSwapchainKHR(logical_device, &info, nil, &swapchain)
+    if res != .SUCCESS {
+        log.error("Failed creating swapchain: ", res);
+        return false
+    }
     log.info("Created Swapchain")
     
     // vk.DestroySwapchainKHR(logical_device, temp, nil)
@@ -511,10 +534,6 @@ create_command_buffers :: proc(using renderer: ^Renderer) -> bool {
 }
 
 create_semaphores_and_fences :: proc(using renderer: ^Renderer) {
-    image_available =   make([]vk.Semaphore,    swapchain_settings.image_count)
-    render_finished =   make([]vk.Semaphore,    swapchain_settings.image_count)
-    in_flight       =   make([]vk.Fence,        swapchain_settings.image_count)
-
 	for i in 0..<swapchain_settings.image_count {
 		semaphore_info: vk.SemaphoreCreateInfo
 		semaphore_info.sType = .SEMAPHORE_CREATE_INFO
