@@ -6,19 +6,60 @@ import "core:log"
 import "core:strconv"
 import "core:math/linalg/glsl"
 import stbi "vendor:stb/image"
+// TODO: Preferably vulkan header not here, Vulkan Extent 3d can be replaced with values.
+import vk "vendor:vulkan"
 
-load_texture :: proc(renderer: ^Renderer, file: string, channels: i32) {
-    texture: Texture
-
+// All textures loading in rgba channels even if image doesnt have all.
+load_texture :: proc(renderer: ^Renderer, file: string) {
     file_path := make_file_path("local_tests/planet_loading/Assets/Textures/", file)
 
     image_width: i32
     image_height: i32
     image_channels: i32
-    image := stbi.load(strings.unsafe_string_to_cstring(file_path), &image_width, &image_height, &image_channels, channels)
+    image := stbi.load(strings.unsafe_string_to_cstring(file_path), &image_width, &image_height, &image_channels, 4)
     
     staging_buffer: BufferResources
-    allocate_buffer(renderer, )
+    allocate_buffer(renderer, u8, cast(u64)(image_width * image_height), {.TRANSFER_SRC}, &staging_buffer)
+    write_to_buffer(renderer, &staging_buffer, image[:image_width * image_height], 0)
+
+    texture: Texture
+    texture.width = image_width
+    texture.height = image_height
+    texture.channels = image_channels
+
+    stbi.image_free(image)
+
+    ok : vk.Result
+    texture.image, ok = create_image(
+        renderer, 
+        .R8G8B8A8_SRGB,
+        vk.Extent3D {
+            width = auto_cast texture.width,
+            height = auto_cast texture.height,
+            depth = 1,
+        },
+        renderer.sample_count, // TODO: Research if this is needed or should be e1.
+        {.TRANSFER_DST, .SAMPLED},
+    )
+
+    assert(ok == .SUCCESS, "Failed to create texture image.")
+
+    // TODO: Extract this into a function.
+    memory_requirements: vk.MemoryRequirements
+    vk.GetImageMemoryRequirements(renderer.logical_device, texture.image, &memory_requirements)
+
+    allocation_info: vk.MemoryAllocateInfo
+    allocation_info.sType = .MEMORY_ALLOCATE_INFO
+    allocation_info.allocationSize = memory_requirements.size
+    allocation_info.memoryTypeIndex = get_memory_from_properties(renderer, {.DEVICE_LOCAL})
+
+    vk.AllocateMemory(renderer.logical_device, &allocation_info, nil, &texture.memory)
+
+    vk.BindImageMemory(renderer.logical_device, texture.image, texture.memory, 0)
+    // TODO: Above
+
+    // TODO: Copy Staging buffer to image!
+    assert(false, "Not implemented!")
 }
 
 init_mesh :: proc(renderer: ^Renderer, file: string) -> ^IndexedMesh {

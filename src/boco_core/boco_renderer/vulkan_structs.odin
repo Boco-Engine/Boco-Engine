@@ -39,7 +39,6 @@ IndexedMesh :: struct {
 }
 
 Texture :: struct {
-    image_data: [^]u8,
     width: i32,
     height: i32,
     channels: i32,
