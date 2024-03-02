@@ -19,5 +19,6 @@ ComponentSignature :: bit_set[0..<64; ComponentID]
 ComponentCollection :: struct($T: typeid) {
     type: typeid,
     components: [dynamic]T,
+    entity_of_component_index: map[u32]Entity,
     entity_indices: map[Entity]u32,
 }

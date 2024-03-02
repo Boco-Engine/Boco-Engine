@@ -85,3 +85,8 @@ write_to_buffer :: proc(using renderer: ^Renderer, buffer_resource: ^BufferResou
 
     vk.UnmapMemory(logical_device, buffer_resource.memory)
 }
+
+free_buffer :: proc(using renderer: ^Renderer, buffer_resource: ^BufferResources) {
+    vk.FreeMemory(logical_device, buffer_resource.memory, nil)
+    vk.DestroyBuffer(logical_device, buffer_resource.buffer, nil)
+}

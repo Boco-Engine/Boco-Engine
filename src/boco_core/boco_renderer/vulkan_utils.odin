@@ -300,3 +300,8 @@ get_memory_from_properties :: proc(using renderer: ^Renderer, properties: vk.Mem
 
 	return 0
 }
+
+// ONLY USE ON TESTING
+wait_on_device :: proc(using renderer: ^Renderer) {
+    vk.DeviceWaitIdle(logical_device);
+}

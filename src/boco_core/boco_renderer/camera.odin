@@ -5,7 +5,7 @@ import "core:math"
 import "core:math/linalg/glsl"
 
 Camera :: struct {
-    position : Vec3,
+    position : [3]f32,
     rotation : Vec3,
     viewMatrix : Mat4,
     projectionMatrix : Mat4,
@@ -24,14 +24,14 @@ update_camera :: proc(this: ^Camera, delta_time: f64) {
 }
 
 update_camera_input :: proc(using this : ^Camera, mouse_movement: [2]f32) {
-    yaw := rotation.x - (mouse_movement.x * 0.1);
+    yaw :=  rotation.x - auto_cast (mouse_movement.x * 0.1);
     if yaw > 360 {
         yaw -= 360
     } else if yaw < 0 {
         yaw += 360
     }
 
-    pitch := rotation.y - (mouse_movement.y * 0.1)
+    pitch := rotation.y - auto_cast (mouse_movement.y * 0.1)
     pitch = max(-89, pitch)
     pitch = min(89, pitch)
 
@@ -42,9 +42,9 @@ update_camera_input :: proc(using this : ^Camera, mouse_movement: [2]f32) {
 
 update_projection_matrix :: proc(using this : ^Camera) {
 	q : f32 = 1.0 / (math.tan_f32(math.to_radians(fov) / 2))
-	A : f32 = q / aspect_ratio
-	B : f32 = -(far + near) / (far - near)
-	C : f32 = -(2 * (far * near)) / (far - near)
+	A : f32 = q / auto_cast aspect_ratio
+	B : f32 = auto_cast (-(far + near) / (far - near))
+	C : f32 = auto_cast (-(2 * (far * near)) / (far - near))
 
 	projectionMatrix = {
 		A, 0, 0, 0,
@@ -68,15 +68,15 @@ update_view_matrix :: proc(using this : ^Camera) {
 	viewMatrix[1, 0] = right.y;
 	viewMatrix[2, 0] = right.z;
     
-	viewMatrix[3, 0] = -glsl.dot_vec3(cast(glsl.vec3)right, cast(glsl.vec3)position);
+	viewMatrix[3, 0] = -glsl.dot_vec3(cast(glsl.vec3)right, glsl.vec3{auto_cast position.x, auto_cast position.y, auto_cast position.z});
 	viewMatrix[0, 1] = up.x;
 	viewMatrix[1, 1] = up.y;
 	viewMatrix[2, 1] = up.z;
-	viewMatrix[3, 1] = -glsl.dot_vec3(cast(glsl.vec3)up, cast(glsl.vec3)position);
+	viewMatrix[3, 1] = -glsl.dot_vec3(cast(glsl.vec3)up, glsl.vec3{auto_cast position.x, auto_cast position.y, auto_cast position.z});
 	viewMatrix[0, 2] = forward.x;
 	viewMatrix[1, 2] = forward.y;
 	viewMatrix[2, 2] = forward.z;
-	viewMatrix[3, 2] = -glsl.dot_vec3(cast(glsl.vec3)forward, cast(glsl.vec3)position);
+	viewMatrix[3, 2] = -glsl.dot_vec3(cast(glsl.vec3)forward, glsl.vec3{auto_cast position.x, auto_cast position.y, auto_cast position.z});
 	viewMatrix[0, 3] = 0
 	viewMatrix[1, 3] = 0
 	viewMatrix[2, 3] = 0
@@ -87,9 +87,9 @@ make_camera :: proc(fov, aspect_ratio : f32) -> (camera: Camera) {
     camera.fov = fov
     camera.aspect_ratio = aspect_ratio
     camera.Update = update_camera
-    camera.far = 10000
+    camera.far = 100000
     camera.near = 0.1
-	camera.position = {0, 0, 6000}
+	camera.position = {0, 0, 100_000}
 
     update_projection_matrix(&camera)
     update_view_matrix(&camera)

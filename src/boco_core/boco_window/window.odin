@@ -17,6 +17,8 @@ Window :: struct {
     child_windows: [dynamic]Window,
     parent_window: ^Window,
     is_ready_to_close: bool,
+
+    events: [Key_name]Window_event,
 }
 
 update_size :: proc(using window: ^Window) {
@@ -83,10 +85,10 @@ handle_window_event_or_delegate :: proc(using window: ^Window){
         case .WINDOWEVENT:
             if event.window.windowID == window_id{
                 window_event.window = window
-                log.info("_____________________")
-                log.info("Event window ID:", event.window.windowID)
-                log.info("----- window ID:", window_id)
-                log.info("_____________________")
+                // log.info("_____________________")
+                // log.info("Event window ID:", event.window.windowID)
+                // log.info("----- window ID:", window_id)
+                // log.info("_____________________")
                 #partial switch event.window.event {
                     case .CLOSE:
                         window_event.state = Window_state.Quit
@@ -125,22 +127,26 @@ handle_window_event_or_delegate :: proc(using window: ^Window){
             window_event.key_event.key.name = key_from_code[event.key.keysym.scancode]
             window_event.key_event.key.code = cast(u32)event.key.keysym.scancode
             window_event.key_event.state = Key_state.Pressed
-            log.info("_____________________")
-            log.info("Key Pressed on window:", name)
-            log.info(window_event.key_event.key.name)
-            log.info("_____________________")
+            // log.info("_____________________")
+            // log.info("Key Pressed on window:", name)
+            // log.info(window_event.key_event.key.name)
+            // log.info("_____________________")
             receive_event(parent_window, &window_event)
+
+            window.events[window_event.key_event.key.name] = window_event
         case .KEYUP:
             window_event.state = Window_state.Key
             key_from_code := key_name_from_code
             window_event.key_event.key.name = key_from_code[event.key.keysym.scancode]
             window_event.key_event.key.code = cast(u32)event.key.keysym.scancode
             window_event.key_event.state = Key_state.Released
-            log.info("_____________________")
-            log.info("Key Released on window:", name)
-            log.info(window_event.key_event.key.name)
-            log.info("_____________________")
+            // log.info("_____________________")
+            // log.info("Key Released on window:", name)
+            // log.info(window_event.key_event.key.name)
+            // log.info("_____________________")
             receive_event(parent_window, &window_event)
+            
+            window.events[window_event.key_event.key.name] = window_event
         }
     }
 }

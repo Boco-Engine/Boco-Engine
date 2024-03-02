@@ -113,6 +113,7 @@ create_graphics_pipeline :: proc(using renderer : ^Renderer) -> bool {
     vertex_bindings.inputRate = .VERTEX
     // TODO: Add Instance bindings
 
+    // TODO: @Benas Look into making this 64 bits so we can have big planets!!!
     vertex_attributes : [3]vk.VertexInputAttributeDescription
     // Position
     vertex_attributes[0].binding = 0
@@ -161,7 +162,7 @@ create_graphics_pipeline :: proc(using renderer : ^Renderer) -> bool {
     rasterization_info.sType = .PIPELINE_RASTERIZATION_STATE_CREATE_INFO
     rasterization_info.depthClampEnable = false
     rasterization_info.rasterizerDiscardEnable = false
-    rasterization_info.polygonMode = .FILL
+    rasterization_info.polygonMode = .LINE
     rasterization_info.cullMode = {.BACK}
     // NOTE: Decide on mesh orientation.
     rasterization_info.frontFace = .COUNTER_CLOCKWISE

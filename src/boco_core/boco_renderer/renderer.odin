@@ -36,7 +36,9 @@ Renderer :: struct {
 
     ui_context: microui.Context,
 
+    // Duplicate data to avoid having to check for all paths on removal of mesh.
     mesh_ids: map[string]MeshID,
+    mesh_paths: map[MeshID]string,
     meshes: map[MeshID]^IndexedMesh,
 
     _next_mesh_id: u32,
@@ -48,9 +50,51 @@ load_mesh_file :: proc(using renderer: ^Renderer, path: string) -> MeshID {
 
     mesh_ids[path] = _next_mesh_id
     meshes[_next_mesh_id] = init_mesh(renderer, path)
+    mesh_paths[_next_mesh_id] = path
     _next_mesh_id += 1
     return mesh_ids[path]
 }
+
+deinit_mesh_from_path :: proc(using renderer: ^Renderer, path: string) -> bool {
+    mesh_id, exists := mesh_ids[path]
+    if !exists do return false
+
+    mesh := meshes[mesh_id]
+
+    free_buffer(renderer, &mesh.index_buffer_resource)
+    free_buffer(renderer, &mesh.vertex_buffer_resource)
+
+    delete(mesh.vertex_data)
+    delete(mesh.index_data)
+    free(mesh)
+
+    delete_key(&mesh_ids, path)
+    delete_key(&mesh_paths, mesh_id)
+    delete_key(&meshes, mesh_id)
+
+    return true
+}
+
+deinit_mesh_from_id :: proc(using renderer: ^Renderer, mesh_id: MeshID) -> bool {
+    mesh, exists := meshes[mesh_id]
+    if !exists do return false
+    path := mesh_paths[mesh_id]
+
+    free_buffer(renderer, &mesh.index_buffer_resource)
+    free_buffer(renderer, &mesh.vertex_buffer_resource)
+
+    delete(mesh.vertex_data)
+    delete(mesh.index_data)
+    free(mesh)
+
+    delete_key(&mesh_ids, path)
+    delete_key(&mesh_paths, mesh_id)
+    delete_key(&meshes, mesh_id)
+
+    return true
+}
+
+deinit_mesh :: proc{deinit_mesh_from_id, deinit_mesh_from_path}
 
 init_ui :: proc(using renderer: ^Renderer) {
     microui.init(&ui_context)
@@ -97,4 +141,8 @@ cleanup_scenes :: proc(using renderer: ^Renderer) -> bool {
     //     delete(scene.static_meshes)
     // }
     return true
+}
+
+wait_on_api :: proc(using renderer: ^Renderer) {
+	wait_on_device(renderer)
 }

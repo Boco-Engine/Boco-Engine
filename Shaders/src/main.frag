@@ -10,5 +10,5 @@ vec3 lightpos = vec3(0, 0, -10000);
 void main() {
     vec3 lightdir = normalize(lightpos - inPos);
     outColour = max(dot(inColour, lightdir), 0.0) * vec4(0.61, 0.46, 0.33, 1);
-    // outColour = vec4(inColour, 1.0);
+    outColour = vec4(inColour, 1.0);
 }

@@ -322,8 +322,8 @@ Key :: struct{
 }
 
 Key_state :: enum{
-    Pressed,
     Released,
+    Pressed,
     Held,
 }
 

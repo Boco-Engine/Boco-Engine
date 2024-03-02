@@ -121,7 +121,3 @@ destroy_mesh :: proc(using renderer: ^Renderer, mesh: ^IndexedMesh) {
 	vk.DestroyBuffer(logical_device, mesh.vertex_buffer_resource.buffer, nil)
 	delete(mesh.vertex_data)
 }
-
-wait_on_api :: proc(using renderer: ^Renderer) {
-	vk.DeviceWaitIdle(logical_device)
-}

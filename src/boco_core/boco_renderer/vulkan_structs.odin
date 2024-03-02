@@ -20,9 +20,9 @@ BufferResources :: struct {
 }
 
 Vertex :: struct {
-	position: Vec3,
-	normal: Vec3,
-	texture_coords: Vec2
+	position: [3]f32,
+	normal: [3]f32,
+	texture_coords: [2]f32
 }
 
 IndexedMesh :: struct {

@@ -360,6 +360,19 @@ init_device :: proc(using renderer: ^Renderer, layers, extensions: []cstring) ->
     verify_device_extension_support(physical_device, layers[:], extensions[:]) or_return
 
     (vk.CreateDevice(physical_device, &device_info, nil, &logical_device) == .SUCCESS) or_return
+
+    // maxVertexInputAttributes;
+    // uint32_t              maxVertexInputBindings;
+    // uint32_t              maxVertexInputAttributeOffset;
+    // uint32_t              maxVertexInputBindingStride;
+
+    // p : vk.PhysicalDeviceProperties
+    // vk.GetPhysicalDeviceProperties(physical_device, &p)
+    // log.debug(p.limits.maxVertexInputAttributes)
+    // log.debug(p.limits.maxVertexInputBindings)
+    // log.debug(p.limits.maxVertexInputAttributeOffset)
+    // log.debug(p.limits.maxVertexInputBindingStride)
+    // assert(false)
     
 	vk.load_proc_addresses(logical_device)
 

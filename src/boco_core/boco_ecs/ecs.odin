@@ -65,6 +65,7 @@ create_component :: proc(ecs: ^ECS, $component: typeid, entity: Entity) -> ^comp
 
     append(&component_collection_ptr.components, component{})
     component_collection_ptr.entity_indices[entity] = cast(u32)(len(component_collection_ptr.components) - 1)
+    component_collection_ptr.entity_of_component_index[cast(u32)(len(component_collection_ptr.components) - 1)] = entity
     ecs.entity_signatures[entity] += ComponentSignature{cast(int)get_component_id(ecs, component)}
 
     // OPTIMIZE:  @BENAS: currently just looping every entity every time a component is added.
@@ -88,23 +89,40 @@ destroy_component :: proc(ecs: ^ECS, $component: typeid, entity: Entity) {
     old_signature := ecs.entity_signatures[entity]
     
     // Swap and pop component
+    // Get the last component
     back_component := component_collection_ptr.components[len(component_collection_ptr.components) - 1]
-    component_collection_ptr.components[entity] = back_component
+    
+    // Get the entity which owns the last component
+    back_entity := component_collection_ptr.entity_of_component_index[auto_cast (len(component_collection_ptr.components) - 1)]
+
+    // Set Removed component to the back component
+    component_collection_ptr.components[component_collection_ptr.entity_indices[entity]] = back_component
+
+    // Update index of entity of back component to the one of removed component
     component_collection_ptr.entity_indices[back_entity] = component_collection_ptr.entity_indices[entity]
+
+    component_collection_ptr.entity_of_component_index[component_collection_ptr.entity_indices[back_entity]] = back_entity
+
+    // Delete the entity from the entity to component map, and remove the last component, and remob
+    delete_key(&component_collection_ptr.entity_of_component_index, auto_cast (len(component_collection_ptr.components) - 1))
+    delete_key(&component_collection_ptr.entity_indices, entity)
     pop(&component_collection_ptr.components)
 
-    delete_key(&component_collection_ptr.entity_indices, entity)
-
-    ecs.entity_signatures[entity] -= get_component_id(component)
+    // log.debug("Entity:", entity, ", Back:", back_entity)
+    // log.debug(component_collection_ptr.entity_indices)
+    // log.debug(component_collection_ptr.entity_of_component_index)
+    // Update Signature
+    ecs.entity_signatures[entity] -= {auto_cast get_component_id(ecs, component)}
 
     // Check if entity is not invalid for any systems
     for _, index in ecs.systems {
         requirements := ecs.systems[index].requirements
         if ((old_signature & requirements) == requirements && (ecs.entity_signatures[entity] & requirements) != requirements) {
-            for system_entity, index in ecs.systems[index].entities {
+            for system_entity, entity_index in ecs.systems[index].entities {
                 if system_entity == entity {
-                    ecs.systems[index].entities[index] = ecs.systems[index].entities[len(ecs.systems[index].entities) - 1]
+                    ecs.systems[index].entities[entity_index] = ecs.systems[index].entities[len(ecs.systems[index].entities) - 1]
                     pop(&ecs.systems[index].entities)
+                    return
                 }
             }
         }

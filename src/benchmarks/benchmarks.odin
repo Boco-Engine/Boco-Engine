@@ -1,6 +1,7 @@
 package benchmarks
 
 import "core:time"
+import "core:fmt"
 
 BenchmarkInfo :: struct {
     total: time.Duration,
@@ -13,6 +14,17 @@ SCOPED_BENCHMARK :: proc(info: ^BenchmarkInfo) -> time.Tick {
 
 _SCOPED_BENCHMARK_END :: proc(info: ^BenchmarkInfo, tick: time.Tick) {
     info.total = time.tick_since(tick)
+}
+
+@(deferred_out=_BENCHMARK_SIMPLE_END)
+BENCHMARK_SIMPLE :: proc() -> (^BenchmarkInfo, time.Tick) {
+    info := new(BenchmarkInfo)
+    return info, time.tick_now()
+}
+
+_BENCHMARK_SIMPLE_END :: proc(info: ^BenchmarkInfo, tick: time.Tick) {
+    fmt.println(time.tick_since(tick))
+    free(info)
 }
 
 BenchmarkSettings :: struct {
