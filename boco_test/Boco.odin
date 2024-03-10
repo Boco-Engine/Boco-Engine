@@ -1,12 +1,13 @@
 package boco_test
 
-import boco "../src"
-import "../src/boco_core/boco_renderer"
-import "../src/boco_core/boco_window"
-import "../src/boco_core/boco_ecs"
 import "core:log"
 import "core:fmt"
 import "core:os"
+
+import boco "boco:core"
+import "boco:core/renderer"
+import "boco:core/window"
+import "boco:core/ecs"
 
 setup_test :: proc(engine: ^boco.Engine) {
     append(&engine.scenes, boco_renderer.Scene{})
