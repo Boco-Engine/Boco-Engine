@@ -8,4 +8,4 @@ IF %1.== no_pause. (
 	exit
 )
 
-pause	
+pause
