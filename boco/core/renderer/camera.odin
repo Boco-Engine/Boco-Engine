@@ -122,9 +122,9 @@ make_camera :: proc(fov, aspect_ratio : f32) -> (camera: Camera) {
     camera.fov = fov
     camera.aspect_ratio = aspect_ratio
     camera.Update = update_camera
-    camera.far = 100_000
-    camera.near = 1
-	camera.position = {0, 0, 2_050_000}
+    camera.far = 10_000_000
+    camera.near = 0.1
+	camera.position = {0, 0, 1_050_000}
 
     update_projection_matrix(&camera)
     update_view_matrix(&camera)

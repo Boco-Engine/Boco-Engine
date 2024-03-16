@@ -20,6 +20,7 @@ load_texture :: proc(renderer: ^Renderer, file: string) -> Texture {
     image_height: i32
     image_channels: i32
     image := stbi.load(strings.unsafe_string_to_cstring(file_path), &image_width, &image_height, &image_channels, 4)
+    image_channels = 4
     
     staging_buffer: BufferResources
     allocate_buffer(renderer, u8, cast(u64)(image_width * image_height * image_channels), {.TRANSFER_SRC}, &staging_buffer)
@@ -41,7 +42,7 @@ load_texture :: proc(renderer: ^Renderer, file: string) -> Texture {
             height = auto_cast texture.height,
             depth = 1,
         },
-        renderer.sample_count, // TODO: Research if this is needed or should be e1.
+        renderer.sample_count,
         {.TRANSFER_DST, .SAMPLED},
     )
 
@@ -135,6 +136,61 @@ load_texture :: proc(renderer: ^Renderer, file: string) -> Texture {
     return texture
 }
 
+init_ui_element :: proc(renderer: ^Renderer, text: string) -> ^UIMesh {
+    mesh := new(UIMesh)
+
+    c := strings.count(text, " ")
+    mesh.vertex_data = make([]UIVertex, (len(text) - c) * 4)
+    mesh.index_data = make([]u32, (len(text) - c) * 6)
+
+    current_x : f32 = -300
+    current_y : f32 = 100
+
+    spaces := 0
+
+    for char, i in text {
+        if (char == ' ') {
+            current_x += 20
+            spaces += 1
+            continue
+        }
+        index := i - spaces
+
+        info := renderer.font[char]
+
+        height := cast(f32)(info.y1 - info.y0)
+        width := cast(f32)(info.x1 - info.x0)
+
+        // WANTED:
+        // cast(i32)(a.x1 - a.x0), cast(i32)(a.y1 - a.y0), 1, cast(rawptr)&pixels[cast(i32)a.x0 + (size * cast(i32)a.y0)], size
+        // X,                       Y,                     ,?, starting index,                                              stride
+
+        mesh.vertex_data[(index * 4) + 0] = UIVertex{{current_x + info.xoff, current_y + info.yoff},                    {cast(f32)info.x0 / 576, cast(f32)info.y0 / 576}}
+        mesh.vertex_data[(index * 4) + 1] = UIVertex{{current_x + width + info.xoff, current_y + height + info.yoff},   {(cast(f32)info.x0 + width) / 576, (cast(f32)info.y0 + height) / 576}}
+        mesh.vertex_data[(index * 4) + 2] = UIVertex{{current_x + info.xoff, current_y + height + info.yoff},           {cast(f32)info.x0 / 576,( cast(f32)info.y0 + height) / 576}}
+        mesh.vertex_data[(index * 4) + 3] = UIVertex{{current_x + width + info.xoff, current_y + info.yoff},            {(cast(f32)info.x0 + width) / 576, cast(f32)info.y0 / 576}}
+
+        mesh.index_data[(index * 6) + 0] = cast(u32)(index * 4) + 0
+        mesh.index_data[(index * 6) + 1] = cast(u32)(index * 4) + 1
+        mesh.index_data[(index * 6) + 2] = cast(u32)(index * 4) + 2
+
+        mesh.index_data[(index * 6) + 3] = cast(u32)(index * 4) + 0
+        mesh.index_data[(index * 6) + 4] = cast(u32)(index * 4) + 3
+        mesh.index_data[(index * 6) + 5] = cast(u32)(index * 4) + 1
+
+        current_x += info.xadvance
+    }
+
+    // CREATE VERTEX BUFFER
+    allocate_buffer(renderer, UIVertex, auto_cast len(mesh.vertex_data), {.VERTEX_BUFFER}, &mesh.vertex_buffer_resource)
+    write_to_buffer(renderer, &mesh.vertex_buffer_resource, mesh.vertex_data, 0)
+    // CREATE INDEX BUFFER
+    allocate_buffer(renderer, u32, auto_cast len(mesh.index_data), {.INDEX_BUFFER}, &mesh.index_buffer_resource)
+    write_to_buffer(renderer, &mesh.index_buffer_resource, mesh.index_data, 0)
+
+    return mesh
+}
+
 init_mesh :: proc(renderer: ^Renderer, file: string) -> ^IndexedMesh {
     mesh : ^IndexedMesh
     mesh_err : bool
@@ -224,6 +280,7 @@ read_bocobm_mesh :: proc(file_name: string) -> (mesh: ^IndexedMesh, err: bool = 
 
     mesh.vertex_data = make([]Vertex, vertex_bytes / size_of(Vertex))
     mesh.index_data = make([]u32, index_bytes / size_of(u32))
+    
 
     mem.copy(cast(rawptr)(&mesh.vertex_data[0]), cast(rawptr)(&data[info_bytes]), vertex_bytes)
     mem.copy(cast(rawptr)(&mesh.index_data[0]), cast(rawptr)(&data[vertex_bytes]), index_bytes)
@@ -479,7 +536,6 @@ read_obj_mesh :: proc(file_name : string) -> (mesh : ^IndexedMesh, err: bool = f
 
                     mesh.index_data[index_count] = cast(u32)vertex1_index - 1
                     mesh.vertex_data[vertex1_index - 1].normal += normals[normal1_index - 1]
-                    log.debug(texture_coords[texture1_index - 1])
                     mesh.vertex_data[vertex1_index - 1].texture_coords = texture_coords[texture1_index - 1]
                     vertex_normal_count[vertex1_index - 1] += 1
 

@@ -7,19 +7,19 @@ import vk "vendor:vulkan"
 
 import "boco:core/window"
 
-begin_render :: proc(using renderer: ^Renderer, view_area: window.ViewArea) {
+begin_render :: proc(using renderer: ^Renderer, view_area_: window.ViewArea) -> bool {
     cmd_buffer := command_buffers[current_frame_index]
 
 	fence_err := vk.WaitForFences(logical_device, 1, &in_flight[current_frame_index], true, ~u64(0))
-	if fence_err != .SUCCESS do return
+	if fence_err != .SUCCESS do return false
 
 	err := vk.AcquireNextImageKHR(logical_device, swapchain, ~u64(0), image_available[current_frame_index], 0, &image_index)
 	if err == .SUBOPTIMAL_KHR {
 		on_resize(renderer)
-		return
+		return false
 	}
 	if err != .SUCCESS{
-		return
+		return false
 	}
 	
 	vk.ResetFences(logical_device, 1, &in_flight[current_frame_index])
@@ -33,20 +33,20 @@ begin_render :: proc(using renderer: ^Renderer, view_area: window.ViewArea) {
 	
 	s := vk.Rect2D {
 		vk.Offset2D {
-			x = cast(i32)view_area.x,
-			y = cast(i32)view_area.y,
+			x = cast(i32)view_area_.x,
+			y = cast(i32)view_area_.y,
 		},
 		vk.Extent2D {
-			width = cast(u32)view_area.width,
-			height = cast(u32)view_area.height,
+			width = cast(u32)view_area_.width,
+			height = cast(u32)view_area_.height,
 		},
 	}
 
 	v := vk.Viewport {
-		x =        view_area.x,
-		y =        view_area.y,
-		width =    view_area.width,
-		height =   view_area.height,
+		x =        view_area_.x,
+		y =        view_area_.y,
+		width =    view_area_.width,
+		height =   view_area_.height,
 		minDepth = viewport.minDepth,
 		maxDepth = viewport.maxDepth,
 	}
@@ -68,9 +68,10 @@ begin_render :: proc(using renderer: ^Renderer, view_area: window.ViewArea) {
 
 	vk.CmdSetScissor(cmd_buffer, 0, 1, &s)
 	vk.CmdSetViewport(cmd_buffer, 0, 1, &v)
+	return true
 }
 
-end_render :: proc(using renderer: ^Renderer, view_area: window.ViewArea) {
+end_render :: proc(using renderer: ^Renderer) {
 	cmd_buffer := command_buffers[current_frame_index]
 
 	vk.CmdEndRenderPass(cmd_buffer)

@@ -40,8 +40,9 @@ handle_window_event_or_delegate :: proc(using window: ^Window){
                         window_event.state = Window_state.Resize
                         w, h : i32
                         sdl.GetWindowSize(view_window, &w, &h)
-                        width = cast(u32)w
-                        height = cast(u32)h
+                        // NOTE: This currently breaks the rendering, because it updates whilst we are recreating attachments.
+                        // width = cast(u32)w
+                        // height = cast(u32)h
                     case .SIZE_CHANGED:
                         window_event.state = Window_state.Resize
                     case .MINIMIZED:

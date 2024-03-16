@@ -84,11 +84,11 @@ create_pipeline_layout :: proc(using renderer : ^Renderer) -> bool {
 
 update_descriptor_sets ::proc(using renderer: ^Renderer, m, v, p: Mat4, pos: [3]f32, i: u32) {
     
-    // ubo := [1]UniformBufferObject{
-    //     UniformBufferObject{
-    //         m, v, p,
-    //     },
-    // }
+    ubo := [1]UniformBufferObject{
+        UniformBufferObject{
+            m, v, p,
+        },
+    }
 
     // camera_pos := [1]CameraBufferObject {
     //     CameraBufferObject{
@@ -97,15 +97,15 @@ update_descriptor_sets ::proc(using renderer: ^Renderer, m, v, p: Mat4, pos: [3]
     // }
 
     // for i in 0..<swapchain_settings.image_count {
-        // allocate_buffer(renderer, UniformBufferObject, size_of(UniformBufferObject), {.UNIFORM_BUFFER}, &uniform_buffers[i])
+        write_to_buffer(renderer, &uniform_buffers[i], ubo[:], 0)
+
         // allocate_buffer(renderer, UniformBufferObject, size_of(UniformBufferObject), {.UNIFORM_BUFFER}, &camera_buffers[i])
-        // write_to_buffer(renderer, &uniform_buffers[i], ubo[:], 0)
         // write_to_buffer(renderer, &camera_buffers[i], camera_pos[:], 0)
 
-        // descriptor_buffer_info : vk.DescriptorBufferInfo
-        // descriptor_buffer_info.buffer = uniform_buffers[i].buffer
-        // descriptor_buffer_info.offset = 0
-        // descriptor_buffer_info.range = size_of(UniformBufferObject)
+        descriptor_buffer_info : vk.DescriptorBufferInfo
+        descriptor_buffer_info.buffer = uniform_buffers[i].buffer
+        descriptor_buffer_info.offset = 0
+        descriptor_buffer_info.range = size_of(UniformBufferObject)
 
         descriptor_image_info : vk.DescriptorImageInfo
         descriptor_image_info.imageLayout = .SHADER_READ_ONLY_OPTIMAL
@@ -117,26 +117,26 @@ update_descriptor_sets ::proc(using renderer: ^Renderer, m, v, p: Mat4, pos: [3]
         // camera_buffer_info.offset = 0
         // camera_buffer_info.range = size_of(UniformBufferObject)
 
-        descriptor_writes : [1]vk.WriteDescriptorSet
-        // descriptor_writes[0].sType = .WRITE_DESCRIPTOR_SET
-        // descriptor_writes[0].dstSet = descriptor_sets[i]
-        // descriptor_writes[0].dstBinding = 0
-        // descriptor_writes[0].dstArrayElement = 0
-        // descriptor_writes[0].descriptorType = .UNIFORM_BUFFER
-        // descriptor_writes[0].descriptorCount = 1
-        // descriptor_writes[0].pBufferInfo = &descriptor_buffer_info
-        // descriptor_writes[0].pImageInfo = nil
-        // descriptor_writes[0].pTexelBufferView = nil
-
+        descriptor_writes : [2]vk.WriteDescriptorSet
         descriptor_writes[0].sType = .WRITE_DESCRIPTOR_SET
         descriptor_writes[0].dstSet = descriptor_sets[i]
-        descriptor_writes[0].dstBinding = 1
+        descriptor_writes[0].dstBinding = 0
         descriptor_writes[0].dstArrayElement = 0
-        descriptor_writes[0].descriptorType = .COMBINED_IMAGE_SAMPLER
+        descriptor_writes[0].descriptorType = .UNIFORM_BUFFER
         descriptor_writes[0].descriptorCount = 1
-        descriptor_writes[0].pBufferInfo = nil
-        descriptor_writes[0].pImageInfo = &descriptor_image_info
+        descriptor_writes[0].pBufferInfo = &descriptor_buffer_info
+        descriptor_writes[0].pImageInfo = nil
         descriptor_writes[0].pTexelBufferView = nil
+
+        descriptor_writes[1].sType = .WRITE_DESCRIPTOR_SET
+        descriptor_writes[1].dstSet = descriptor_sets[i]
+        descriptor_writes[1].dstBinding = 1
+        descriptor_writes[1].dstArrayElement = 0
+        descriptor_writes[1].descriptorType = .COMBINED_IMAGE_SAMPLER
+        descriptor_writes[1].descriptorCount = 1
+        descriptor_writes[1].pBufferInfo = nil
+        descriptor_writes[1].pImageInfo = &descriptor_image_info
+        descriptor_writes[1].pTexelBufferView = nil
 
         // descriptor_writes[2].sType = .WRITE_DESCRIPTOR_SET
         // descriptor_writes[2].dstSet = descriptor_sets[i]
@@ -294,7 +294,7 @@ create_graphics_pipeline :: proc(using renderer : ^Renderer) -> bool {
     // TODO: Add support for Multisampling.
     multisample_info: vk.PipelineMultisampleStateCreateInfo
     multisample_info.sType = .PIPELINE_MULTISAMPLE_STATE_CREATE_INFO
-    multisample_info.rasterizationSamples = {._1}
+    multisample_info.rasterizationSamples = sample_count
     multisample_info.sampleShadingEnable = false
     multisample_info.minSampleShading = 1.0
     multisample_info.pSampleMask = nil
@@ -302,7 +302,6 @@ create_graphics_pipeline :: proc(using renderer : ^Renderer) -> bool {
     multisample_info.alphaToOneEnable = false
 
     // DEPTH STENCIL
-    // TODO: Add support for Depth.
     depth_stencil_info: vk.PipelineDepthStencilStateCreateInfo
     depth_stencil_info.sType = .PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO
     depth_stencil_info.depthTestEnable = true

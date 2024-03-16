@@ -35,6 +35,11 @@ Vertex :: struct {
 	texture_coords: [2]f32
 }
 
+UIVertex :: struct {
+    position: [2]f32,
+    texture_coord: [2]f32
+}
+
 IndexedMesh :: struct {
     // Data
     // TODO: Texture Data
@@ -44,6 +49,14 @@ IndexedMesh :: struct {
 
     // Resources
     // DESIGN: Buffer resources. We want to be able to allocate one buffer for several things so need some way to keep track of buffer, offset, and size.
+    vertex_buffer_resource: BufferResources,
+    index_buffer_resource: BufferResources,
+}
+
+UIMesh :: struct {
+    vertex_data: []UIVertex,
+    index_data: []u32,
+
     vertex_buffer_resource: BufferResources,
     index_buffer_resource: BufferResources,
 }

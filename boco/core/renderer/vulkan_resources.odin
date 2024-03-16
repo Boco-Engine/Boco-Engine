@@ -77,7 +77,7 @@ allocate_buffer :: proc(using renderer: ^Renderer, $T: typeid, data_size: u64, u
 }
 
 // TODO: Dont always need to unmap memory, might want to provide method for mapping memory and keeping it mapped.
-write_to_buffer :: proc(using renderer: ^Renderer, buffer_resource: ^BufferResources, data: []$T, write_offset: u64) {
+write_to_buffer :: proc(using renderer: ^Renderer, buffer_resource: ^BufferResources, data: []$T, write_offset: u64 = 0) {
     data_size : vk.DeviceSize = auto_cast (size_of(T) * len(data))
     
     vk.MapMemory(logical_device, buffer_resource.memory, cast(vk.DeviceSize)write_offset, data_size, {}, &buffer_resource.data_ptr)

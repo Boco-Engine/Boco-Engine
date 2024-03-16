@@ -2,6 +2,7 @@ package ecs_core
 
 import "boco:core/renderer"
 import "boco:core/types"
+import "boco:core/ecs"
 
 Transform :: struct {
     position: types.dVec3,
@@ -11,7 +12,11 @@ Transform :: struct {
 
 MeshComponent :: struct {
     id: renderer.MeshID,
-    visible: bool,
+    ui: bool,
+}
+
+MaterialComponent :: struct {
+    id: renderer.MaterialID,
 }
 
 Chunk :: struct {
@@ -23,4 +28,12 @@ Chunk :: struct {
 ChunkLoadDistance :: struct {
     min: f64,
     max: f64,
+}
+
+Parent :: struct {
+    parent: ecs.Entity,
+}
+
+RotationVelocity :: struct {
+    value: f32,
 }

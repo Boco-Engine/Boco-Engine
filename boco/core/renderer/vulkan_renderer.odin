@@ -79,6 +79,11 @@ RendererInternals :: struct {
     descriptor_sets: []vk.DescriptorSet,
     pipeline_layout: vk.PipelineLayout,
     graphics_pipeline: vk.Pipeline,
+    ui_pipeline: vk.Pipeline,
+
+    graphics_pipelines: []vk.Pipeline,
+    material_to_pipeline_index: map[MaterialID]u32,
+
     // NOTE: Only 1 queue of each type, might want to expand this later.
     queues: [QueueFamilyType]vk.Queue,
     surface: vk.SurfaceKHR,
@@ -117,6 +122,10 @@ RendererInternals :: struct {
     
     // DEBUG
     debug_messenger: vk.DebugUtilsMessengerEXT,
+
+    materials : [dynamic]Material,
+    
+    needs_recreation : bool,
 
     // HACK: This is temporary for seeing if textures work.
     texture: Texture,
@@ -195,7 +204,8 @@ init_vulkan :: proc(using renderer: ^Renderer) -> (ok: bool = false)
 	viewport.minDepth = 0.0
 	viewport.maxDepth = 1.0
     
-    create_graphics_pipeline(renderer)
+    initialise_pipelines(renderer, materials[:])
+    ui_pipeline = create_ui_pipeline(renderer)
 
     framebuffers = make([]vk.Framebuffer, swapchain_settings.image_count)
     create_framebuffers(renderer)
@@ -209,11 +219,19 @@ init_vulkan :: proc(using renderer: ^Renderer) -> (ok: bool = false)
     in_flight       =   make([]vk.Fence,        swapchain_settings.image_count)
     create_semaphores_and_fences(renderer)
 
+    uniform_buffers = make([]BufferResources, swapchain_settings.image_count)
+    for i in 0..<swapchain_settings.image_count {
+        allocate_buffer(renderer, UniformBufferObject, size_of(UniformBufferObject), {.UNIFORM_BUFFER}, &uniform_buffers[i])
+    }
+    
+
     return true
 }
 
 on_resize :: proc(using renderer: ^Renderer) {
+    log.debug("Resize")
     vk.DeviceWaitIdle(logical_device)
+    vk.QueueWaitIdle(renderer.queues[.GRAPHICS])
 
     for i in 0..<swapchain_settings.image_count {
         vk.FreeMemory(logical_device, depth_memory[i], nil)
@@ -228,7 +246,7 @@ on_resize :: proc(using renderer: ^Renderer) {
         vk.DestroySemaphore(logical_device, image_available[i], nil)
     }
 
-    window.update_size(main_window);
+    // window.update_size(main_window);
 
     init_swapchain(renderer)
     vk.GetSwapchainImagesKHR(logical_device, swapchain, &swapchain_settings.image_count, &swapchain_images[0])
@@ -379,10 +397,13 @@ init_device :: proc(using renderer: ^Renderer, layers, extensions: []cstring) ->
             case .anisotropy:
                 features.samplerAnisotropy = true
                 features.depthClamp = true
+            case .fillModeNonSolid:
+                features.fillModeNonSolid = true
             case:
                 log.error("Feature added without support being added.")
         }
     }
+
 
     device_info: vk.DeviceCreateInfo
     device_info.sType = .DEVICE_CREATE_INFO
@@ -426,6 +447,8 @@ init_swapchain :: proc(using renderer: ^Renderer) -> (ok: bool = false) {
     vk.GetPhysicalDeviceSurfaceCapabilitiesKHR(physical_device, surface, &caps)
 
     extent : vk.Extent2D = caps.currentExtent
+    renderer.main_window.width = extent.width
+    renderer.main_window.height = extent.height
 
     temp := old_swapchain
     old_swapchain = swapchain
@@ -538,13 +561,17 @@ create_framebuffers :: proc(using renderer: ^Renderer) -> bool {
             depth_imageviews[index],
         }
 
+        // caps : vk.SurfaceCapabilitiesKHR
+        // vk.GetPhysicalDeviceSurfaceCapabilitiesKHR(physical_device, surface, &caps)
+        // extent : vk.Extent2D = caps.currentExtent
+
         // FRAMEBUFFER
         framebuffer_info: vk.FramebufferCreateInfo
         framebuffer_info.sType = .FRAMEBUFFER_CREATE_INFO
         framebuffer_info.attachmentCount = cast(u32)len(attachments)
         framebuffer_info.pAttachments = &attachments[0]
-        framebuffer_info.width = main_window.width
-        framebuffer_info.height = main_window.height
+        framebuffer_info.width = renderer.main_window.width
+        framebuffer_info.height = renderer.main_window.height
         framebuffer_info.layers = 1
         framebuffer_info.renderPass = render_pass
 
@@ -596,11 +623,15 @@ create_semaphores_and_fences :: proc(using renderer: ^Renderer) {
 }
 
 init_depth_resources :: proc(using renderer: ^Renderer) {
+    caps : vk.SurfaceCapabilitiesKHR
+    vk.GetPhysicalDeviceSurfaceCapabilitiesKHR(physical_device, surface, &caps)
+    extent : vk.Extent2D = caps.currentExtent
+
     for i in 0..<swapchain_settings.image_count {
         ret : vk.Result
         depth_images[i], ret = create_image(renderer,
             .D32_SFLOAT,
-            {main_window.width, main_window.height, 1},
+            {renderer.main_window.width, renderer.main_window.height, 1},
             sample_count,
             {.DEPTH_STENCIL_ATTACHMENT},
         )

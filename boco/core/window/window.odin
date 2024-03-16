@@ -25,8 +25,8 @@ Window :: struct {
 update_size :: proc(using window: ^Window) {
     w, h : i32
     sdl.GetWindowSize(view_window, &w, &h)
-    width = cast(u32)w
-    height = cast(u32)h
+    // width = cast(u32)w
+    // height = cast(u32)h
 }
 
 init :: proc(using window: ^Window, title: cstring = "BOCO") -> (ok: bool = true) {

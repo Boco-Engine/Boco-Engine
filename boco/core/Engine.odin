@@ -23,9 +23,20 @@ Engine :: struct {
     main_window : window.Window,
     main_renderer : renderer.Renderer,
     scenes: [dynamic]renderer.Scene, // Need to pass the amount of max entities for each entity, need to change, dont want menu having same as the game.
+    current_scene: u32,
 
     node_info: NodeInfo,
     logger: log.Logger,
+
+    last_update: time.Time,
+
+    delta_time: f32,
+
+    threads_running: bool,
+    
+    // TODO: Move this out, this is temp fix
+    last_mouse_pos: [2]f32,
+    moved: bool,
 }
 
 // TODO: Find a relavant place for all local coordinate system functions
@@ -44,38 +55,21 @@ init :: proc(using engine: ^Engine) -> (ok: bool = false) {
         .tessellationShader,
         .shaderf64,
         .anisotropy,
+        .fillModeNonSolid,
     }
 
     window.init(&main_window) or_return
     main_renderer.main_window = &main_window
     renderer.init(&main_renderer) or_return
 
-    // TODO: Need a game loop, where we can init, update, and cleanup game resources.
-    renderer.init_ui(&main_renderer)
-
+    last_update = time.now()
     running = true
     return true
 }
 
-HandleInputs :: proc(using engine: ^Engine) -> (ok: bool = true) {
+// TODO: Move to ecs Action.
+update :: proc(using engine: ^Engine) -> (ok: bool = true) {
     ok &= window.update(&main_window)
-    return
-}
-
-UpdatePhysics :: proc(using engine: ^Engine) -> (ok: bool = true) {
-    return
-}
-
-RenderScene :: proc(using engine: ^Engine, scene: renderer.Scene, view_area: window.ViewArea) -> (ok: bool = true) {
-    // renderer.render_scene(&renderer, scene, view_area)
-
-    // RenderMeshAction(engine, scene.ecs, )
-
-    return
-} 
-
-RenderFrame :: proc(using engine: ^Engine) -> (ok: bool = true) {
-    ok &= renderer.update(&main_renderer)
     return
 }
 

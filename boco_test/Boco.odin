@@ -26,7 +26,7 @@ run_test :: proc(engine: ^boco.Engine) {
         view_area := boco_window.ViewArea{0, 0, cast(f32)engine.window.width, cast(f32)engine.window.height}
         boco_renderer.begin_render(&engine.renderer, view_area)
         boco_ecs.update(cast(^any)engine, &engine.scenes[0].ecs)
-        boco_renderer.end_render(&engine.renderer, view_area)
+        boco_renderer.end_render(&engine.renderer)
     }
 }
 

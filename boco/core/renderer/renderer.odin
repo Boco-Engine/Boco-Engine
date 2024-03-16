@@ -5,18 +5,13 @@ GRAPHICS_API :: #config(GRAPHICS_API, "vulkan")
 import "core:log"
 import "core:time"
 
-import "vendor:microui"
-
 import "boco:core/window"
 
-// Not sure I like this, but makes swapping out Graphics APIs pretty easy if we decide to add XBOX/PS Support
-// Would be better to just import the file and have these already defined, but cant put import in a when.
+// TODO: Probably want this a runtime selection not compile time? Might want to give choice between apis without needing two versions of the executable?
 when GRAPHICS_API == "vulkan" {
     init_graphics_api :: init_vulkan
     cleanup_graphics_api :: cleanup_vulkan
-} 
-else when GRAPHICS_API == "DirectX 12" 
-{
+} else when GRAPHICS_API == "DirectX 12" {
 
 }
 
@@ -25,27 +20,26 @@ SupportedRendererFeatures :: enum
     tessellationShader, 
     geometryShader,
     shaderf64,
-    anisotropy
+    anisotropy,
+    fillModeNonSolid,
 }
 
 RendererFeatures :: bit_set[SupportedRendererFeatures]
 
 Renderer :: struct {
+    // TODO: This feels jank
     using _renderer_internals : RendererInternals,
     main_window : ^window.Window,
 
-    needs_recreation : bool,
-
-    current_scene_id: u32,
-
-    ui_context: microui.Context,
-
-    // Duplicate data to avoid having to check for all paths on removal of mesh.
+    // TODO: Create data structure to handle our meshes
     mesh_ids: map[string]MeshID,
     mesh_paths: map[MeshID]string,
-    meshes: map[MeshID]^IndexedMesh,
+    meshes: map[MeshID]rawptr,
 
-    _next_mesh_id: u32,
+    _next_mesh_id: MeshID,
+    _next_material_id: MaterialID,
+
+    font: Font,
 }
 
 load_mesh_file :: proc(using renderer: ^Renderer, path: string) -> MeshID {
@@ -53,11 +47,18 @@ load_mesh_file :: proc(using renderer: ^Renderer, path: string) -> MeshID {
     if exists do return mesh_id
 
     mesh_ids[path] = _next_mesh_id
-    meshes[_next_mesh_id] = init_mesh(renderer, path)
-    log.debug(meshes[_next_mesh_id].vertex_data[:10])
+    meshes[_next_mesh_id] = cast(rawptr)init_mesh(renderer, path)
     mesh_paths[_next_mesh_id] = path
     _next_mesh_id += 1
     return mesh_ids[path]
+}
+
+create_ui_text :: proc(using renderer: ^Renderer, text: string) -> MeshID {
+    mesh_ids[text] = _next_mesh_id
+    meshes[_next_mesh_id] = cast(rawptr)init_ui_element(renderer, text)
+    mesh_paths[_next_mesh_id] = text
+    _next_mesh_id += 1
+    return mesh_ids[text]
 }
 
 deinit_mesh_from_path :: proc(using renderer: ^Renderer, path: string) -> bool {
@@ -66,11 +67,11 @@ deinit_mesh_from_path :: proc(using renderer: ^Renderer, path: string) -> bool {
 
     mesh := meshes[mesh_id]
 
-    free_buffer(renderer, &mesh.index_buffer_resource)
-    free_buffer(renderer, &mesh.vertex_buffer_resource)
+    free_buffer(renderer, &(cast(^IndexedMesh)(mesh)).index_buffer_resource)
+    free_buffer(renderer, &(cast(^IndexedMesh)(mesh)).vertex_buffer_resource)
 
-    delete(mesh.vertex_data)
-    delete(mesh.index_data)
+    delete((cast(^IndexedMesh)(mesh)).vertex_data)
+    delete((cast(^IndexedMesh)(mesh)).index_data)
     free(mesh)
 
     delete_key(&mesh_ids, path)
@@ -85,11 +86,11 @@ deinit_mesh_from_id :: proc(using renderer: ^Renderer, mesh_id: MeshID) -> bool 
     if !exists do return false
     path := mesh_paths[mesh_id]
 
-    free_buffer(renderer, &mesh.index_buffer_resource)
-    free_buffer(renderer, &mesh.vertex_buffer_resource)
+    free_buffer(renderer, &(cast(^IndexedMesh)(mesh)).index_buffer_resource)
+    free_buffer(renderer, &(cast(^IndexedMesh)(mesh)).vertex_buffer_resource)
 
-    delete(mesh.vertex_data)
-    delete(mesh.index_data)
+    delete((cast(^IndexedMesh)(mesh)).vertex_data)
+    delete((cast(^IndexedMesh)(mesh)).index_data)
     free(mesh)
 
     delete_key(&mesh_ids, path)
@@ -101,12 +102,6 @@ deinit_mesh_from_id :: proc(using renderer: ^Renderer, mesh_id: MeshID) -> bool 
 
 deinit_mesh :: proc{deinit_mesh_from_id, deinit_mesh_from_path}
 
-init_ui :: proc(using renderer: ^Renderer) {
-    microui.init(&ui_context)
-    ui_context.text_width = proc(font: microui.Font, str: string) -> i32 { return auto_cast (10 * len(str)) }
-    ui_context.text_height = proc(font: microui.Font) -> i32 { return 10 }
-}
-
 init :: proc(using renderer: ^Renderer) -> (ok: bool = true) {
     ok = init_graphics_api(renderer)
     
@@ -116,10 +111,6 @@ init :: proc(using renderer: ^Renderer) -> (ok: bool = true) {
     }
 
     return
-}
-
-update :: proc(using renderer: ^Renderer) -> bool {
-    return true
 }
 
 version :: proc() -> string {
