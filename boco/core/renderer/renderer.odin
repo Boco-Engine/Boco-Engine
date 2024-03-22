@@ -9,7 +9,7 @@ import "boco:core/window"
 
 // TODO: Probably want this a runtime selection not compile time? Might want to give choice between apis without needing two versions of the executable?
 when GRAPHICS_API == "vulkan" {
-    init_graphics_api :: init_vulkan
+    init_graphics_api :: vulkan_init
     cleanup_graphics_api :: cleanup_vulkan
 } else when GRAPHICS_API == "DirectX 12" {
 
@@ -53,6 +53,35 @@ load_mesh_file :: proc(using renderer: ^Renderer, path: string) -> MeshID {
     return mesh_ids[path]
 }
 
+mesh_create :: proc(using renderer: ^Renderer, tag: string, vertex_size, index_size: u64) -> MeshID {
+    mesh_id, exists := mesh_ids[tag]
+    if exists do return mesh_id
+
+    mesh_ids[tag] = _next_mesh_id
+
+    mesh := new(IndexedMesh)
+
+    mesh.push_constant.m = matrix[4, 4]f32{
+        1, 0, 0, 0,
+        0, 1, 0, 0,
+        0, 0, 1, 0,
+        0, 0, 0, 1,
+    }
+
+    buffer_allocate(renderer, vertex_size, {.VERTEX_BUFFER, .TRANSFER_DST, .TRANSFER_SRC}, &mesh.vertex_buffer_resource)
+    buffer_allocate(renderer, index_size, {.INDEX_BUFFER, .TRANSFER_DST, .TRANSFER_SRC}, &mesh.index_buffer_resource)
+
+    mesh.vertex_buffer_resource.capacity = auto_cast vertex_size
+    mesh.index_buffer_resource.capacity = auto_cast index_size
+
+    meshes[_next_mesh_id] = cast(rawptr)mesh
+
+    mesh_paths[_next_mesh_id] = tag
+    _next_mesh_id += 1
+    return mesh_ids[tag]
+}
+
+// HACK: 
 create_ui_text :: proc(using renderer: ^Renderer, text: string) -> MeshID {
     mesh_ids[text] = _next_mesh_id
     meshes[_next_mesh_id] = cast(rawptr)init_ui_element(renderer, text)
@@ -67,8 +96,8 @@ deinit_mesh_from_path :: proc(using renderer: ^Renderer, path: string) -> bool {
 
     mesh := meshes[mesh_id]
 
-    free_buffer(renderer, &(cast(^IndexedMesh)(mesh)).index_buffer_resource)
-    free_buffer(renderer, &(cast(^IndexedMesh)(mesh)).vertex_buffer_resource)
+    buffer_free(renderer, &(cast(^IndexedMesh)(mesh)).index_buffer_resource)
+    buffer_free(renderer, &(cast(^IndexedMesh)(mesh)).vertex_buffer_resource)
 
     delete((cast(^IndexedMesh)(mesh)).vertex_data)
     delete((cast(^IndexedMesh)(mesh)).index_data)
@@ -81,13 +110,14 @@ deinit_mesh_from_path :: proc(using renderer: ^Renderer, path: string) -> bool {
     return true
 }
 
+// TODO: Why am i casting so much here? just cast once and store it.
 deinit_mesh_from_id :: proc(using renderer: ^Renderer, mesh_id: MeshID) -> bool {
     mesh, exists := meshes[mesh_id]
     if !exists do return false
     path := mesh_paths[mesh_id]
 
-    free_buffer(renderer, &(cast(^IndexedMesh)(mesh)).index_buffer_resource)
-    free_buffer(renderer, &(cast(^IndexedMesh)(mesh)).vertex_buffer_resource)
+    buffer_free(renderer, &(cast(^IndexedMesh)(mesh)).index_buffer_resource)
+    buffer_free(renderer, &(cast(^IndexedMesh)(mesh)).vertex_buffer_resource)
 
     delete((cast(^IndexedMesh)(mesh)).vertex_data)
     delete((cast(^IndexedMesh)(mesh)).index_data)
@@ -96,6 +126,18 @@ deinit_mesh_from_id :: proc(using renderer: ^Renderer, mesh_id: MeshID) -> bool 
     delete_key(&mesh_ids, path)
     delete_key(&mesh_paths, mesh_id)
     delete_key(&meshes, mesh_id)
+
+    return true
+}
+
+// NOTE: Does not remove from paths and ids maps as this should only be called when meshes are manually created!.
+deinit_mesh_from_ptr :: proc(using renderer: ^Renderer, mesh: ^IndexedMesh) -> bool {
+    buffer_free(renderer, &(cast(^IndexedMesh)(mesh)).index_buffer_resource)
+    buffer_free(renderer, &(cast(^IndexedMesh)(mesh)).vertex_buffer_resource)
+
+    delete((cast(^IndexedMesh)(mesh)).vertex_data)
+    delete((cast(^IndexedMesh)(mesh)).index_data)
+    free(mesh)
 
     return true
 }

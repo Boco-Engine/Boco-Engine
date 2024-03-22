@@ -11,6 +11,8 @@ import "core:math/linalg/glsl"
 import stbi "vendor:stb/image"
 import vk "vendor:vulkan"
 
+import "boco:core/assets"
+
 // All textures loading in rgba channels even if image doesnt have all.
 // TODO: Create texture map of all loaded textures so were not loading already exisiting one, and return handle rather than the texture.
 load_texture :: proc(renderer: ^Renderer, file: string) -> Texture {
@@ -23,8 +25,8 @@ load_texture :: proc(renderer: ^Renderer, file: string) -> Texture {
     image_channels = 4
     
     staging_buffer: BufferResources
-    allocate_buffer(renderer, u8, cast(u64)(image_width * image_height * image_channels), {.TRANSFER_SRC}, &staging_buffer)
-    write_to_buffer(renderer, &staging_buffer, image[:image_width * image_height * image_channels], 0)
+    buffer_allocate(renderer, size_of(u8) * cast(u64)(image_width * image_height * image_channels), {.TRANSFER_SRC}, &staging_buffer)
+    buffer_write(renderer, &staging_buffer, image[:image_width * image_height * image_channels], 0)
 
     texture: Texture
     texture.width = image_width
@@ -34,7 +36,7 @@ load_texture :: proc(renderer: ^Renderer, file: string) -> Texture {
     stbi.image_free(image)
 
     ok : vk.Result
-    texture.image, ok = create_image(
+    texture.image, ok = image_create(
         renderer, 
         .R8G8B8A8_SRGB,
         vk.Extent3D {
@@ -106,16 +108,16 @@ load_texture :: proc(renderer: ^Renderer, file: string) -> Texture {
         TransitionImageLayout(cmd_buffer[0], texture, .TRANSFER_DST_OPTIMAL, .SHADER_READ_ONLY_OPTIMAL)
     }
 
-    texture.image_view = create_imageview(renderer, texture.image, .R8G8B8A8_SRGB, {.COLOR})
+    texture.image_view = imageview_create(renderer, texture.image, .R8G8B8A8_SRGB, {.COLOR})
 
     // TEXTURE SAMPLER
     sampler_info : vk.SamplerCreateInfo
     sampler_info.sType = .SAMPLER_CREATE_INFO
     sampler_info.magFilter = .LINEAR
     sampler_info.minFilter = .LINEAR
-    sampler_info.addressModeU = .MIRRORED_REPEAT
-    sampler_info.addressModeV = .MIRRORED_REPEAT
-    sampler_info.addressModeW = .MIRRORED_REPEAT
+    sampler_info.addressModeU = .REPEAT
+    sampler_info.addressModeV = .REPEAT
+    sampler_info.addressModeW = .REPEAT
     sampler_info.anisotropyEnable = true
 
     props : vk.PhysicalDeviceProperties
@@ -182,11 +184,11 @@ init_ui_element :: proc(renderer: ^Renderer, text: string) -> ^UIMesh {
     }
 
     // CREATE VERTEX BUFFER
-    allocate_buffer(renderer, UIVertex, auto_cast len(mesh.vertex_data), {.VERTEX_BUFFER}, &mesh.vertex_buffer_resource)
-    write_to_buffer(renderer, &mesh.vertex_buffer_resource, mesh.vertex_data, 0)
+    buffer_allocate(renderer, size_of(UIVertex) * auto_cast len(mesh.vertex_data), {.VERTEX_BUFFER}, &mesh.vertex_buffer_resource)
+    buffer_write(renderer, &mesh.vertex_buffer_resource, mesh.vertex_data, 0)
     // CREATE INDEX BUFFER
-    allocate_buffer(renderer, u32, auto_cast len(mesh.index_data), {.INDEX_BUFFER}, &mesh.index_buffer_resource)
-    write_to_buffer(renderer, &mesh.index_buffer_resource, mesh.index_data, 0)
+    buffer_allocate(renderer, size_of(u32) * auto_cast len(mesh.index_data), {.INDEX_BUFFER}, &mesh.index_buffer_resource)
+    buffer_write(renderer, &mesh.index_buffer_resource, mesh.index_data, 0)
 
     return mesh
 }
@@ -212,21 +214,25 @@ init_mesh :: proc(renderer: ^Renderer, file: string) -> ^IndexedMesh {
     }
 
     // CREATE VERTEX BUFFER
-    allocate_buffer(renderer, Vertex, auto_cast len(mesh.vertex_data), {.VERTEX_BUFFER}, &mesh.vertex_buffer_resource)
-    write_to_buffer(renderer, &mesh.vertex_buffer_resource, mesh.vertex_data, 0)
+    buffer_allocate(renderer, size_of(Vertex) * auto_cast len(mesh.vertex_data), {.VERTEX_BUFFER}, &mesh.vertex_buffer_resource)
+    buffer_write(renderer, &mesh.vertex_buffer_resource, mesh.vertex_data, 0)
     // CREATE INDEX BUFFER
-    allocate_buffer(renderer, u32, auto_cast len(mesh.index_data), {.INDEX_BUFFER}, &mesh.index_buffer_resource)
-    write_to_buffer(renderer, &mesh.index_buffer_resource, mesh.index_data, 0)
+    buffer_allocate(renderer, size_of(u32) * auto_cast len(mesh.index_data), {.INDEX_BUFFER}, &mesh.index_buffer_resource)
+    buffer_write(renderer, &mesh.index_buffer_resource, mesh.index_data, 0)
 
     return mesh
 }
 
 make_file_path :: proc(folder : string, file : string) -> (path : string) {
     builder := strings.builder_make(0, len(folder) + len(file) + 1)
+    defer(strings.builder_destroy(&builder))
+
     strings.write_string(&builder, folder)
     strings.write_string(&builder, "/")
     strings.write_string(&builder, file)
-    return strings.to_string(builder)
+
+    // NOTE: Return a copy of the string from string builder as the builder is destroyed.
+    return 	strings.clone(strings.to_string(builder))
 }
 
 read_spirv :: proc(file_name : string) -> (code : []u8, err : bool = true) {
@@ -260,13 +266,13 @@ read_mesh :: proc(file_name : string) -> (mesh : ^IndexedMesh, err: bool = false
 read_bocobm_mesh :: proc(file_name: string) -> (mesh: ^IndexedMesh, err: bool = false) {
     // log.info("Reading BOCOM: ", file_name)
     // TODO: More Robust way to find files
-    file_path := make_file_path("local_tests/planet_loading/Assets/Meshes", file_name)
+    // file_path := make_file_path("local_tests/planet_loading/Assets/Meshes", file_name)
 
-    data_bytes, ok := os.read_entire_file(file_path, context.allocator)
+    data_bytes, ok := assets.read_file(file_name)
     data := cast([]u8)data_bytes
-    assert(ok, "Failed to read BOCOM file")
+    assert(ok, "Failed to read BOCOBM file")
 
-    defer delete(data, context.allocator)
+    defer delete(data_bytes, context.allocator)
 
     mesh = new(IndexedMesh)
 
@@ -289,11 +295,9 @@ read_bocobm_mesh :: proc(file_name: string) -> (mesh: ^IndexedMesh, err: bool = 
 }
 
 read_bocom_mesh :: proc(file_name: string) -> (mesh: IndexedMesh, err: bool = false) {
-    log.info("Reading BOCOM: ", file_name)
-    // TODO: More Robust way to find files
     file_path := make_file_path("local_tests/planet_loading/Assets/Meshes", file_name)
-
-    file_contents, ok := os.read_entire_file(file_path, context.allocator)
+    
+    file_contents, ok := assets.read_file(file_path)
     assert(ok, "Failed to read BOCOM file")
 
     defer delete(file_contents, context.allocator)

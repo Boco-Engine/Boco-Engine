@@ -5,7 +5,7 @@ import "core:mem"
 
 import vk "vendor:vulkan"
 
-create_image :: proc(using renderer: ^Renderer, 
+image_create :: proc(using renderer: ^Renderer, 
                     format: vk.Format, 
                     extent: vk.Extent3D,
                     samples: vk.SampleCountFlags,
@@ -29,7 +29,7 @@ create_image :: proc(using renderer: ^Renderer,
     return image, ret 
 }
 
-create_imageview :: proc(using renderer: ^Renderer, image: vk.Image, format: vk.Format, aspect_mask: vk.ImageAspectFlags) -> (image_view: vk.ImageView){
+imageview_create :: proc(using renderer: ^Renderer, image: vk.Image, format: vk.Format, aspect_mask: vk.ImageAspectFlags) -> (image_view: vk.ImageView){
     info : vk.ImageViewCreateInfo
     info.sType = .IMAGE_VIEW_CREATE_INFO
     info.pNext = nil
@@ -51,8 +51,8 @@ create_imageview :: proc(using renderer: ^Renderer, image: vk.Image, format: vk.
     return
 }
 
-allocate_buffer :: proc(using renderer: ^Renderer, $T: typeid, data_size: u64, usage: vk.BufferUsageFlags, buffer_resource: ^BufferResources) {
-    buffer_size : vk.DeviceSize = auto_cast (size_of(T) * data_size)
+buffer_allocate :: proc(using renderer: ^Renderer, data_size: u64, usage: vk.BufferUsageFlags, buffer_resource: ^BufferResources) {
+    buffer_size : vk.DeviceSize = auto_cast data_size
 
     info : vk.BufferCreateInfo
     info.sType = .BUFFER_CREATE_INFO
@@ -74,25 +74,24 @@ allocate_buffer :: proc(using renderer: ^Renderer, $T: typeid, data_size: u64, u
     vk.AllocateMemory(logical_device, &memory_info, nil, &buffer_resource.memory)
 
     vk.BindBufferMemory(logical_device, buffer_resource.buffer, buffer_resource.memory, 0)
+    vk.MapMemory(logical_device, buffer_resource.memory, 0, auto_cast vk.WHOLE_SIZE, {}, &buffer_resource.data_ptr)
 }
 
 // TODO: Dont always need to unmap memory, might want to provide method for mapping memory and keeping it mapped.
-write_to_buffer :: proc(using renderer: ^Renderer, buffer_resource: ^BufferResources, data: []$T, write_offset: u64 = 0) {
+buffer_write :: proc(using renderer: ^Renderer, buffer_resource: ^BufferResources, data: []$T, write_offset: u64 = 0) {
     data_size : vk.DeviceSize = auto_cast (size_of(T) * len(data))
-    
-    vk.MapMemory(logical_device, buffer_resource.memory, cast(vk.DeviceSize)write_offset, data_size, {}, &buffer_resource.data_ptr)
 
-    mem.copy(buffer_resource.data_ptr, &data[0], cast(int)data_size)
-
-    vk.UnmapMemory(logical_device, buffer_resource.memory)
+    data_ptr_with_offset := cast([^]byte)(uintptr(buffer_resource.data_ptr))
+    mem.copy(data_ptr_with_offset[write_offset:], &data[0], cast(int)data_size)
 }
 
-free_buffer :: proc(using renderer: ^Renderer, buffer_resource: ^BufferResources) {
+buffer_free :: proc(using renderer: ^Renderer, buffer_resource: ^BufferResources) {
+    vk.UnmapMemory(logical_device, buffer_resource.memory)
     vk.FreeMemory(logical_device, buffer_resource.memory, nil)
     vk.DestroyBuffer(logical_device, buffer_resource.buffer, nil)
 }
 
-destroy_mesh :: proc(using renderer: ^Renderer, mesh: ^IndexedMesh) {
+mesh_destroy :: proc(using renderer: ^Renderer, mesh: ^IndexedMesh) {
 	vk.FreeMemory(logical_device, mesh.index_buffer_resource.memory, nil)
 	vk.DestroyBuffer(logical_device, mesh.index_buffer_resource.buffer, nil)
 	delete(mesh.index_data)

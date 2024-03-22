@@ -24,6 +24,9 @@ CameraBufferObject :: struct {
 }
 
 BufferResources :: struct {
+    length: u32,
+    capacity: u32,
+
     buffer: vk.Buffer,
     memory: vk.DeviceMemory,
     data_ptr: rawptr
@@ -42,7 +45,7 @@ UIVertex :: struct {
 
 IndexedMesh :: struct {
     // Data
-    // TODO: Texture Data
+    // TODO: Remove These from here, these dont need to be stored once they are copied to the buffers.
     push_constant: PushConstant,
     vertex_data: []Vertex,
     index_data: []u32,

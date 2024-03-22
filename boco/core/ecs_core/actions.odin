@@ -31,12 +31,9 @@ RenderMeshAction :: proc(engine_ptr: rawptr, world: ^ecs.ECS, system: ^ecs.Syste
     ok := renderer.begin_render(&engine.main_renderer, view_area_2)
     if !ok do return 
     
-    v := renderer.get_view_matrix_at_position(&scene.camera, [3]f32{cast(f32)camera_pos.x, cast(f32)camera_pos.y, cast(f32)camera_pos.z})
-
-    
+    v := renderer.camera_get_view_matrix_at_position(&scene.camera, [3]f32{cast(f32)camera_pos.x, cast(f32)camera_pos.y, cast(f32)camera_pos.z})
 
     renderer.update_descriptor_sets(&engine.main_renderer, types.Mat4{}, v, engine.scenes[0].camera.projectionMatrix, [3]f32{cast(f32)camera_pos_abs.x, cast(f32)camera_pos_abs.y, cast(f32)camera_pos_abs.z}, engine.main_renderer.current_frame_index)
-
 
     for entity in system.entities {
         mesh_component := ecs.get_component(world, MeshComponent, entity)
@@ -82,7 +79,7 @@ RenderMeshAction :: proc(engine_ptr: rawptr, world: ^ecs.ECS, system: ^ecs.Syste
                 },
             }
 
-            renderer.write_to_buffer(&engine.main_renderer, &engine.main_renderer.uniform_buffers[current_frame_index], ubo[:], 0)
+            renderer.buffer_write(&engine.main_renderer, &engine.main_renderer.uniform_buffers[current_frame_index], ubo[:], 0)
 
             mvp.m *= matrix[4, 4]f32 {
                 1, 0, 0, 0,
@@ -90,8 +87,6 @@ RenderMeshAction :: proc(engine_ptr: rawptr, world: ^ecs.ECS, system: ^ecs.Syste
                 0, 0, 1, 0,
                 pos_f32.x, pos_f32.y, pos_f32.z, 1,
             }
-
-            v := renderer.get_view_matrix_at_position(&scene.camera, [3]f32{cast(f32)camera_pos.x, cast(f32)camera_pos.y, cast(f32)camera_pos.z})
 
             offsets := [?]vk.DeviceSize{0}
 
@@ -109,7 +104,7 @@ RenderMeshAction :: proc(engine_ptr: rawptr, world: ^ecs.ECS, system: ^ecs.Syste
             vk.CmdBindVertexBuffers(cmd_buffer, 0, 1, &mesh_ptr.vertex_buffer_resource.buffer, &offsets[0])
             vk.CmdBindIndexBuffer(cmd_buffer, mesh_ptr.index_buffer_resource.buffer, 0, .UINT32)
 
-            vk.CmdDrawIndexed(cmd_buffer, cast(u32)len(mesh_ptr.index_data), 1, 0, 0, 0)
+            vk.CmdDrawIndexed(cmd_buffer, cast(u32)(mesh_ptr.index_buffer_resource.length / size_of(u32)), 1, 0, 0, 0)
         }
 
         

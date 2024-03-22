@@ -2,7 +2,7 @@
 
 layout(location = 0) out vec3 out_position;
 layout(location = 1) out vec3 out_normal;
-layout(location = 2) out vec3 out_texc;
+layout(location = 2) out vec2 out_texc;
 
 layout(location = 0) in vec3 position;
 layout(location = 1) in vec3 normal;
@@ -22,7 +22,8 @@ layout(binding = 0) uniform UniformBufferObject {
 void main() {
     // TODO: Make all inputs/outputs floats and convert 64 input to local coordinates
     gl_Position = vec4(position, 1.0f) * PushConstant.mvp;
+
     out_normal = (vec4(normal, 1.0) * ubo.model).xyz;
     out_position = position;
-    out_texc = position;
+    out_texc = texture_coord;
 }

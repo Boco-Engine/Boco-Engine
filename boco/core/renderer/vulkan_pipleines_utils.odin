@@ -5,7 +5,7 @@ import "core:strings"
 
 import vk "vendor:vulkan"
 
-initialise_pipelines :: proc(renderer: ^Renderer, materials: []Material) {
+pipelines_create :: proc(renderer: ^Renderer, materials: []Material) {
     // Unique pipeline for each combination of shaders and polygon modes.
     pipeline_count : u32 = 1
     renderer.material_to_pipeline_index[materials[0].id] = 0

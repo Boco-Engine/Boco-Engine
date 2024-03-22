@@ -131,6 +131,7 @@ get_component :: proc(universe: ^ECS, $component_type: typeid, entity: Entity) -
     entity_component_index, exists := components.entity_indices[entity]
     if !exists do return nil
 
+
     component := transmute(^component_type)&components.data[entity_component_index * size_of(component_type)]
 
     return component

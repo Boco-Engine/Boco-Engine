@@ -4,29 +4,29 @@ import "core:fmt"
 import "core:math"
 import "core:math/linalg/glsl"
 
+import "boco:core/types"
+
 Camera :: struct {
     position : [3]f64,
     rotation : Vec3,
     viewMatrix : Mat4,
     projectionMatrix : Mat4,
 
-    up, forward, right : Vec3,
+    up, forward, right : types.Vec3,
     fov: f32,
     aspect_ratio : f32,
     far, near : f32,
-
-    Update : proc(this : ^Camera, delta_time : f64),
 
 	// TODO: Find a way to update this so everything else can piggyback of this value.
 	local_position : Vec3,
 }
 
-update_camera :: proc(this: ^Camera, delta_time: f64) {
-    update_projection_matrix(this)
-    update_view_matrix(this)
+camera_update :: proc(this: ^Camera, delta_time: f64) {
+    camera_update_projection_matrix(this)
+    camera_update_view_matrix(this)
 }
 
-update_camera_input :: proc(using this : ^Camera, mouse_movement: [2]f32) {
+camera_update_input :: proc(using this : ^Camera, mouse_movement: [2]f32) {
     yaw :=  rotation.x - auto_cast (mouse_movement.x * 0.1);
     if yaw > 360 {
         yaw -= 360
@@ -35,15 +35,15 @@ update_camera_input :: proc(using this : ^Camera, mouse_movement: [2]f32) {
     }
 
     pitch := rotation.y - auto_cast (mouse_movement.y * 0.1)
-    pitch = max(-89, pitch)
-    pitch = min(89, pitch)
+    // pitch = max(-89, pitch)
+    // pitch = min(89, pitch)
 
     rotation = {yaw, pitch, rotation.z}
     
-    rad : Vec3 =  {math.to_radians(yaw), math.to_radians(pitch), math.to_radians(rotation.z)}
+    // rad : Vec3 =  {math.to_radians(yaw), math.to_radians(pitch), math.to_radians(rotation.z)}
 }
 
-update_projection_matrix :: proc(using this : ^Camera) {
+camera_update_projection_matrix :: proc(using this : ^Camera) {
 	q : f32 = 1.0 / (math.tan_f32(math.to_radians(fov) / 2))
 	A : f32 = q / auto_cast aspect_ratio
 	B : f32 = auto_cast (-(far + near) / (far - near))
@@ -57,7 +57,7 @@ update_projection_matrix :: proc(using this : ^Camera) {
 	}
 }
 
-update_view_matrix :: proc(using this : ^Camera) {
+camera_update_view_matrix :: proc(using this : ^Camera) {
 	c3 : f32 = math.cos_f32(math.to_radians(rotation.z))
 	s3 : f32 = math.sin_f32(math.to_radians(rotation.z))
 	c2 : f32 = math.cos_f32(math.to_radians(rotation.y))
@@ -86,7 +86,8 @@ update_view_matrix :: proc(using this : ^Camera) {
 	viewMatrix[3, 3] = 1
 }
 
-get_view_matrix_at_position :: proc(this: ^Camera, pos: [3]f32) -> Mat4 {
+// TODO: @Benas Improve this and figure out what all this means
+camera_get_view_matrix_at_position :: proc(this: ^Camera, pos: [3]f32) -> Mat4 {
 	c3 : f32 = math.cos_f32(math.to_radians(this.rotation.z))
 	s3 : f32 = math.sin_f32(math.to_radians(this.rotation.z))
 	c2 : f32 = math.cos_f32(math.to_radians(this.rotation.y))
@@ -118,16 +119,18 @@ get_view_matrix_at_position :: proc(this: ^Camera, pos: [3]f32) -> Mat4 {
 	return viewMatrix
 }
 
-make_camera :: proc(fov, aspect_ratio : f32) -> (camera: Camera) {
+camera_make :: proc(fov, aspect_ratio : f32) -> (camera: Camera) {
     camera.fov = fov
     camera.aspect_ratio = aspect_ratio
-    camera.Update = update_camera
     camera.far = 10_000_000
     camera.near = 0.1
-	camera.position = {0, 0, 1_050_000}
 
-    update_projection_matrix(&camera)
-    update_view_matrix(&camera)
+    camera_update_projection_matrix(&camera)
+    camera_update_view_matrix(&camera)
 
     return
+}
+
+camera_destroy :: proc(camera: ^Camera) {
+
 }

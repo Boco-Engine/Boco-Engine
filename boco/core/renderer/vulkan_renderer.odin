@@ -14,8 +14,6 @@ import "boco:benchmarks"
 
 foreign import vulkan "vulkan-1.lib"
 
-QUEUE_FLAGS_MAX_INDEX :: 10
-
 foreign vulkan {
     vkGetInstanceProcAddr :: proc(vk.Instance, cstring) -> rawptr ---
 }
@@ -89,7 +87,6 @@ RendererInternals :: struct {
     surface: vk.SurfaceKHR,
 
     // Resources
-    // Can pre allocate this to some max size, wont be too large and would keep data more local.
     swapchain_images: []vk.Image,
     swapchain_imageviews: []vk.ImageView,
 
@@ -120,26 +117,25 @@ RendererInternals :: struct {
     render_finished: []vk.Semaphore,
     in_flight: []vk.Fence,
     
-    // DEBUG
     debug_messenger: vk.DebugUtilsMessengerEXT,
 
+    // TODO: Probably want some container to manage materials better.
+    // TODO: Move to renderer struct, as this is not internal to the renderer.
     materials : [dynamic]Material,
-    
-    needs_recreation : bool,
 
     // HACK: This is temporary for seeing if textures work.
     texture: Texture,
 }
 
 // TODO: Allow changing GPU in use.
-init_vulkan :: proc(using renderer: ^Renderer) -> (ok: bool = false) 
+vulkan_init :: proc(using renderer: ^Renderer) -> (ok: bool = false) 
 {  
     log.info("Creating Vulkan resources")
     vk.load_proc_addresses(cast(rawptr)vkGetInstanceProcAddr)
 
     sample_count = {._1}
 
-    // TODO: Should query window for needed layers!
+    // TODO: @Joe: Should query window for needed layers. Currenly hardcoded for windows.
     layers := [dynamic]cstring{}
 
     instance_extensions := [dynamic]cstring{
@@ -166,36 +162,28 @@ init_vulkan :: proc(using renderer: ^Renderer) -> (ok: bool = false)
         append(&instance_extensions, vk.EXT_DEBUG_UTILS_EXTENSION_NAME)
     }
 
-    init_instance(renderer, layers[:], instance_extensions[:]) or_return
+    instance_create(renderer, layers[:], instance_extensions[:]) or_return
 
     when ODIN_DEBUG {
-        init_debug_messenger(renderer) or_return
+        debug_messenger_create(renderer) or_return
     }
 
-    init_surface(renderer) or_return
+    surface_create(renderer) or_return
 
     query_best_device(renderer) or_return
 
-    init_device(renderer, layers[:], device_extensions[:]) or_return
+    device_create(renderer, layers[:], device_extensions[:]) or_return
 
     swapchain_settings = get_swapchain_settings(renderer)
-    init_swapchain(renderer)
+    swapchain_create(renderer)
 
-    vk.GetSwapchainImagesKHR(logical_device, swapchain, &swapchain_settings.image_count, nil)
-    swapchain_images = make([]vk.Image, swapchain_settings.image_count)
-    vk.GetSwapchainImagesKHR(logical_device, swapchain, &swapchain_settings.image_count, &swapchain_images[0])
+    swapchain_retrieve_images(renderer)
 
-    swapchain_imageviews = make([]vk.ImageView, swapchain_settings.image_count)
-    retrieve_swapchain_images(renderer)
+    depth_create_resources(renderer)
 
-    depth_images = make([]vk.Image, swapchain_settings.image_count)
-    depth_memory = make([]vk.DeviceMemory, swapchain_settings.image_count)
-    depth_imageviews = make([]vk.ImageView, swapchain_settings.image_count)
-    init_depth_resources(renderer)
+    render_pass_create(renderer)
 
-    init_render_pass(renderer)
-
-    create_pipeline_layout(renderer)
+    pipeline_layout_create(renderer)
 
     // TODO: This needs to be managed somehow to be the render areas size, not entire windows!
 	scissor.extent = {main_window.width, main_window.height}
@@ -204,24 +192,24 @@ init_vulkan :: proc(using renderer: ^Renderer) -> (ok: bool = false)
 	viewport.minDepth = 0.0
 	viewport.maxDepth = 1.0
     
-    initialise_pipelines(renderer, materials[:])
+    pipelines_create(renderer, materials[:])
     ui_pipeline = create_ui_pipeline(renderer)
 
     framebuffers = make([]vk.Framebuffer, swapchain_settings.image_count)
-    create_framebuffers(renderer)
+    framebuffers_create(renderer)
 
-    create_command_pool(renderer)
+    command_pool_create(renderer)
 
-    create_command_buffers(renderer)
+    command_buffers_create(renderer)
 
     image_available =   make([]vk.Semaphore,    swapchain_settings.image_count)
     render_finished =   make([]vk.Semaphore,    swapchain_settings.image_count)
     in_flight       =   make([]vk.Fence,        swapchain_settings.image_count)
-    create_semaphores_and_fences(renderer)
+    semaphores_and_fences_create(renderer)
 
     uniform_buffers = make([]BufferResources, swapchain_settings.image_count)
     for i in 0..<swapchain_settings.image_count {
-        allocate_buffer(renderer, UniformBufferObject, size_of(UniformBufferObject), {.UNIFORM_BUFFER}, &uniform_buffers[i])
+        buffer_allocate(renderer, size_of(UniformBufferObject) * 1, {.UNIFORM_BUFFER}, &uniform_buffers[i])
     }
     
 
@@ -248,14 +236,14 @@ on_resize :: proc(using renderer: ^Renderer) {
 
     // window.update_size(main_window);
 
-    init_swapchain(renderer)
+    swapchain_create(renderer)
     vk.GetSwapchainImagesKHR(logical_device, swapchain, &swapchain_settings.image_count, &swapchain_images[0])
 
-    retrieve_swapchain_images(renderer)
-    init_depth_resources(renderer)
-    create_framebuffers(renderer)
+    swapchain_retrieve_images(renderer)
+    depth_create_resources(renderer)
+    framebuffers_create(renderer)
 
-    create_semaphores_and_fences(renderer)
+    semaphores_and_fences_create(renderer)
 }
 
 cleanup_vulkan :: proc(using renderer: ^Renderer) {
@@ -302,7 +290,7 @@ cleanup_vulkan :: proc(using renderer: ^Renderer) {
     vk.DestroyInstance(instance, nil)
 }
 
-init_instance :: proc(using renderer: ^Renderer, layers, extensions: []cstring) -> (ok: bool = false) {
+instance_create :: proc(using renderer: ^Renderer, layers, extensions: []cstring) -> (ok: bool = false) {
     application_info : vk.ApplicationInfo
     application_info.sType = .APPLICATION_INFO
     // NOTE: Guess for this might be user application stuff we want to place.
@@ -349,13 +337,13 @@ init_instance :: proc(using renderer: ^Renderer, layers, extensions: []cstring) 
     return true
 }
 
-init_surface :: proc(using renderer: ^Renderer) -> bool {
+surface_create :: proc(using renderer: ^Renderer) -> bool {
     log.info("Creating Surface")
     window.create_window_surface(main_window, renderer.instance, &surface)
     return true
 }
 
-init_debug_messenger :: proc(using renderer: ^Renderer) -> (ok: bool = false) {
+debug_messenger_create :: proc(using renderer: ^Renderer) -> (ok: bool = false) {
     debug_messenger_info : vk.DebugUtilsMessengerCreateInfoEXT
     fill_debug_messenger_info(&debug_messenger_info)
     res := vk.CreateDebugUtilsMessengerEXT(instance, &debug_messenger_info, nil, &debug_messenger)
@@ -364,7 +352,7 @@ init_debug_messenger :: proc(using renderer: ^Renderer) -> (ok: bool = false) {
     return true
 }
 
-init_device :: proc(using renderer: ^Renderer, layers, extensions: []cstring) -> (ok: bool = false) {
+device_create :: proc(using renderer: ^Renderer, layers, extensions: []cstring) -> (ok: bool = false) {
     log.info("Creating Device")
     query_family_queues(renderer)
     
@@ -442,7 +430,7 @@ init_device :: proc(using renderer: ^Renderer, layers, extensions: []cstring) ->
     return true
 }
 
-init_swapchain :: proc(using renderer: ^Renderer) -> (ok: bool = false) {
+swapchain_create :: proc(using renderer: ^Renderer) -> (ok: bool = false) {
     caps : vk.SurfaceCapabilitiesKHR
     vk.GetPhysicalDeviceSurfaceCapabilitiesKHR(physical_device, surface, &caps)
 
@@ -482,14 +470,22 @@ init_swapchain :: proc(using renderer: ^Renderer) -> (ok: bool = false) {
     return true
 }
 
-retrieve_swapchain_images :: proc(using renderer: ^Renderer) {
+swapchain_retrieve_images :: proc(using renderer: ^Renderer) {
+    // TODO: More robust checking
+    if swapchain_images == nil {
+        vk.GetSwapchainImagesKHR(logical_device, swapchain, &swapchain_settings.image_count, nil)
+        swapchain_images = make([]vk.Image, swapchain_settings.image_count)
+        vk.GetSwapchainImagesKHR(logical_device, swapchain, &swapchain_settings.image_count, &swapchain_images[0])
+    }
+
+    swapchain_imageviews = make([]vk.ImageView, swapchain_settings.image_count)
     // Overwrites what we set as image count to actual used, as vulkan might use different amount.
     for image, index in swapchain_images {
-        swapchain_imageviews[index] = create_imageview(renderer, swapchain_images[index], swapchain_settings.surface_format.format, {.COLOR})
+        swapchain_imageviews[index] = imageview_create(renderer, swapchain_images[index], swapchain_settings.surface_format.format, {.COLOR})
     }
 }
 
-init_render_pass :: proc(using renderer: ^Renderer) -> bool {
+render_pass_create :: proc(using renderer: ^Renderer) -> bool {
     attachment_descriptions: [2]vk.AttachmentDescription
 
     // Output Attachment
@@ -554,7 +550,7 @@ init_render_pass :: proc(using renderer: ^Renderer) -> bool {
     return true
 }
 
-create_framebuffers :: proc(using renderer: ^Renderer) -> bool {
+framebuffers_create :: proc(using renderer: ^Renderer) -> bool {
     for &imageview, index in swapchain_imageviews {
         attachments := [?]vk.ImageView{
             imageview,
@@ -581,7 +577,7 @@ create_framebuffers :: proc(using renderer: ^Renderer) -> bool {
     return true
 }
 
-create_command_pool :: proc(using renderer: ^Renderer) -> bool {
+command_pool_create :: proc(using renderer: ^Renderer) -> bool {
     command_pool_info : vk.CommandPoolCreateInfo
 	command_pool_info.sType = .COMMAND_POOL_CREATE_INFO
 	command_pool_info.flags = {.RESET_COMMAND_BUFFER}
@@ -592,7 +588,7 @@ create_command_pool :: proc(using renderer: ^Renderer) -> bool {
     return true
 }
 
-create_command_buffers :: proc(using renderer: ^Renderer) -> bool {
+command_buffers_create :: proc(using renderer: ^Renderer) -> bool {
     command_buffers = make([]vk.CommandBuffer, swapchain_settings.image_count)
 
     // Making a command buffer for each swapchain image. probably need to extend this.
@@ -607,7 +603,7 @@ create_command_buffers :: proc(using renderer: ^Renderer) -> bool {
     return true
 }
 
-create_semaphores_and_fences :: proc(using renderer: ^Renderer) {
+semaphores_and_fences_create :: proc(using renderer: ^Renderer) {
 	for i in 0..<swapchain_settings.image_count {
 		semaphore_info: vk.SemaphoreCreateInfo
 		semaphore_info.sType = .SEMAPHORE_CREATE_INFO
@@ -622,14 +618,21 @@ create_semaphores_and_fences :: proc(using renderer: ^Renderer) {
 	}
 }
 
-init_depth_resources :: proc(using renderer: ^Renderer) {
+depth_create_resources :: proc(using renderer: ^Renderer) {
+    // TODO: More robust checking
+    if depth_images == nil {
+        depth_images = make([]vk.Image, swapchain_settings.image_count)
+        depth_memory = make([]vk.DeviceMemory, swapchain_settings.image_count)
+        depth_imageviews = make([]vk.ImageView, swapchain_settings.image_count)
+    }
+
     caps : vk.SurfaceCapabilitiesKHR
     vk.GetPhysicalDeviceSurfaceCapabilitiesKHR(physical_device, surface, &caps)
     extent : vk.Extent2D = caps.currentExtent
 
     for i in 0..<swapchain_settings.image_count {
         ret : vk.Result
-        depth_images[i], ret = create_image(renderer,
+        depth_images[i], ret = image_create(renderer,
             .D32_SFLOAT,
             {renderer.main_window.width, renderer.main_window.height, 1},
             sample_count,
@@ -652,7 +655,7 @@ init_depth_resources :: proc(using renderer: ^Renderer) {
             0,
          )
 
-        depth_imageviews[i] = create_imageview(renderer,
+        depth_imageviews[i] = imageview_create(renderer,
             depth_images[i],
             .D32_SFLOAT,
             {vk.ImageAspectFlag.DEPTH},

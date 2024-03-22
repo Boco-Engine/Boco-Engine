@@ -4,7 +4,7 @@ import "core:log"
 
 import vk "vendor:vulkan"
 
-create_pipeline_layout :: proc(using renderer : ^Renderer) -> bool {
+pipeline_layout_create :: proc(using renderer : ^Renderer) -> bool {
     // TODO: Descriptor pools/sets want to be moved out and shouldnt be in this function what so ever.
     // Descriptor Set Pool
     pool_sizes: [2]vk.DescriptorPoolSize
@@ -97,7 +97,7 @@ update_descriptor_sets ::proc(using renderer: ^Renderer, m, v, p: Mat4, pos: [3]
     // }
 
     // for i in 0..<swapchain_settings.image_count {
-        write_to_buffer(renderer, &uniform_buffers[i], ubo[:], 0)
+        buffer_write(renderer, &uniform_buffers[i], ubo[:], 0)
 
         // allocate_buffer(renderer, UniformBufferObject, size_of(UniformBufferObject), {.UNIFORM_BUFFER}, &camera_buffers[i])
         // write_to_buffer(renderer, &camera_buffers[i], camera_pos[:], 0)
